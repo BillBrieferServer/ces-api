@@ -14,6 +14,7 @@ async def list_officials(
     name: Optional[str] = None,
     jurisdiction_id: Optional[int] = None,
     title: Optional[str] = None,
+    jurisdiction: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     where = []
@@ -28,6 +29,9 @@ async def list_officials(
     if title:
         where.append("o.title ILIKE :title")
         params["title"] = f"%{title}%"
+    if jurisdiction:
+        where.append("j.name ILIKE :jurisdiction")
+        params["jurisdiction"] = f"%{jurisdiction}%"
 
     where_clause = ("WHERE " + " AND ".join(where)) if where else ""
 
