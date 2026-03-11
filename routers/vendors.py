@@ -1,0 +1,74 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from typing import Optional
+
+from database import get_db
+from models import VendorCreate, VendorListItem, VendorDetail, VendorJurisdictionCreate, VendorSummary
+
+router = APIRouter(prefix="/vendors", tags=["vendors"])
+
+
+@router.post("", response_model=VendorDetail, status_code=201)
+async def create_vendor(vendor: VendorCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(text("""
+        INSERT INTO ces.vendors
+            (vendor_name, contact_name, phone, email, website, address,
+             bluebook_status, ces_contract_category, source)
+        VALUES (:vendor_name, :contact_name, :phone, :email, :website, :address,
+                :bluebook_status, :ces_contract_category, :source)
+        RETURNING vendor_id, created_date
+    """), vendor.model_dump())
+    await db.commit()
+    row = result.mappings().first()
+
+    return VendorDetail(vendor_id=row["vendor_id"], created_date=row["created_date"],
+                        **vendor.model_dump())
+
+
+@router.get("", response_model=list[VendorListItem])
+async def list_vendors(
+    bluebook_status: Optional[str] = None,
+    name: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    where = []
+    params = {}
+
+    if bluebook_status:
+        where.append("bluebook_status = :bluebook_status")
+        params["bluebook_status"] = bluebook_status
+    if name:
+        where.append("vendor_name ILIKE :name")
+        params["name"] = f"%{name}%"
+
+    where_clause = ("WHERE " + " AND ".join(where)) if where else ""
+
+    result = await db.execute(text(f"""
+        SELECT vendor_id, vendor_name, contact_name, phone, email, bluebook_status
+        FROM ces.vendors {where_clause}
+        ORDER BY vendor_name
+    """), params)
+
+    return [VendorListItem(**dict(r)) for r in result.mappings().all()]
+
+
+@router.post("/{vendor_id}/jurisdictions", status_code=201)
+async def link_vendor_jurisdiction(
+    vendor_id: int,
+    link: VendorJurisdictionCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        await db.execute(text("""
+            INSERT INTO ces.vendor_jurisdictions
+                (vendor_id, jurisdiction_id, relationship_type, annual_spend, source)
+            VALUES (:vendor_id, :jurisdiction_id, :relationship_type, :annual_spend, :source)
+        """), {"vendor_id": vendor_id, **link.model_dump()})
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"status": "linked", "vendor_id": vendor_id,
+            "jurisdiction_id": link.jurisdiction_id}

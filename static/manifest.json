@@ -1,0 +1,13 @@
+{
+  "name": "CES Idaho Regional Manager",
+  "short_name": "CES Idaho",
+  "description": "CES outreach and vendor management for Idaho",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
