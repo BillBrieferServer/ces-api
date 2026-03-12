@@ -246,7 +246,7 @@ def check_trusted_device(request: Request, user_id: int) -> bool:
     Check if this device is trusted for the given user.
     Returns True if device is trusted and valid.
     """
-    token = request.cookies.get(TRUSTED_DEVICE_COOKIE_NAME)
+    token = request.cookies.get(TRUSTED_DEVICE_COOKIE)
     if not token:
         return False
 
@@ -301,7 +301,7 @@ def create_trusted_device_response(
 
     # Set cookie
     response.set_cookie(
-        key=TRUSTED_DEVICE_COOKIE_NAME,
+        key=TRUSTED_DEVICE_COOKIE,
         value=plain_token,
         max_age=TRUSTED_DEVICE_DAYS * 24 * 60 * 60,
         httponly=True,
