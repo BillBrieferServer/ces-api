@@ -41,7 +41,7 @@ async def list_officials(
         FROM public.officials o
         LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = o.jurisdiction_id
         {where_clause}
-        ORDER BY o.name
+        ORDER BY split_part(o.name, ' ', array_length(string_to_array(o.name, ' '), 1))
         LIMIT 200
     """), params)
 

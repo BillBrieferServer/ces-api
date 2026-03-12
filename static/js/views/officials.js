@@ -1,5 +1,14 @@
 import { api, navigate, phoneLink, emailLink, showToast } from "../app.js";
 
+
+function lastNameFirst(name) {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  const last = parts.pop();
+  return last + ", " + parts.join(" ");
+}
+
 export async function renderOfficials(el) {
   el.innerHTML = `
     <input class="search-bar" type="search" placeholder="Search officials by name..." id="off-search">
@@ -47,7 +56,7 @@ export async function renderOfficials(el) {
       <div class="list-item" style="position:relative">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="flex:1;min-width:0" data-goto-jurisdiction="${o.jurisdiction_id || ""}" data-goto-name="${(o.jurisdiction_name || "").replace(/"/g, '&quot;')}">
-            <div class="list-item-title">${o.name}</div>
+            <div class="list-item-title">${lastNameFirst(o.name)}</div>
             <div class="list-item-sub">${o.title || ""} &mdash; ${o.jurisdiction_name || ""}</div>
           </div>
           <button class="btn btn-sm" data-edit-off="${o.official_id}"
