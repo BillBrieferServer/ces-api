@@ -189,7 +189,7 @@ def get_current_user(request: Request) -> Optional[dict]:
 def create_session_response(
     response: Response,
     user_id: int,
-    remember_days: int = 7,
+    remember_days: int = 30,
     request: Optional[Request] = None
 ) -> str:
     """
@@ -607,7 +607,7 @@ async def register_password_submit(
     send_welcome_email(email, user_info.get('name', ''))
 
     # Create session and redirect
-    remember_days = 7 if remember_me else 1
+    remember_days = 30 if remember_me else 1
     response = RedirectResponse(url="/", status_code=302)
     response.delete_cookie("verified_email")
     create_session_response(response, user_id, remember_days, request)
@@ -773,7 +773,7 @@ async def login_submit(
 
         # Create session
         response = RedirectResponse(url="/", status_code=302)
-        create_session_response(response, user['id'], 7, request)  # 7 day session
+        create_session_response(response, user["id"], 30, request)  # 7 day session
         update_user_last_login(user['id'])
 
         return response
@@ -819,7 +819,7 @@ async def login_verify_submit(
     request: Request,
     code: str = Form(...),
     remember_me: bool = Form(False),
-    remember_days: int = Form(7),
+    remember_days: int = Form(30),
     trust_device: bool = Form(False)
 ):
     """Handle MFA code verification."""
