@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Authorized Users — CES Idaho</title>
+  <style>
+    body { font-family: system-ui; max-width: 800px; margin: 48px auto; padding: 0 16px; line-height: 1.4; background: #fff; color: #111; }
+    h1 { margin-bottom: 4px; }
+    .subtitle { color: #555; margin-bottom: 24px; }
+    .alert-error { padding: 10px 12px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 10px; color: #991b1b; margin-bottom: 16px; }
+    .alert-success { padding: 10px 12px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 10px; color: #065f46; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f9fafb; font-weight: 600; font-size: 0.85em; text-transform: uppercase; color: #6b7280; }
+    tr:hover { background: #f9fafb; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; font-weight: 600; }
+    .badge-admin { background: #dbeafe; color: #1e40af; }
+    .badge-registered { background: #d1fae5; color: #065f46; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .btn { padding: 6px 12px; border: 0; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+    .btn-sm { padding: 4px 10px; font-size: 0.8em; }
+    .btn-primary { background: #111; color: #fff; }
+    .btn-primary:hover { background: #333; }
+    .btn-danger { background: #fee2e2; color: #991b1b; }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-outline { background: #fff; color: #111; border: 1px solid #d1d5db; }
+    .btn-outline:hover { background: #f3f4f6; }
+    .add-form { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+    .add-form input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; flex: 1; min-width: 150px; }
+    .back-link { margin-top: 24px; }
+    .back-link a { color: #111; text-decoration: none; }
+    .actions { display: flex; gap: 6px; }
+    .empty { color: #999; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>Authorized Users</h1>
+  <p class="subtitle">Manage who can register and access CES Idaho.</p>
+
+  {% if error %}
+    <div class="alert-error">{{ error }}</div>
+  {% endif %}
+  {% if success %}
+    <div class="alert-success">{{ success }}</div>
+  {% endif %}
+
+  <h2 style="font-size:1.1em;margin-bottom:12px;">Add User</h2>
+  <form method="post" action="/admin/users/add" class="add-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <input type="email" name="email" placeholder="Email address" required />
+    <input type="text" name="name" placeholder="Full name" />
+    <label style="display:flex;align-items:center;gap:4px;font-size:0.9em;white-space:nowrap;">
+      <input type="checkbox" name="is_admin" value="1" /> Admin
+    </label>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Name</th>
+        <th>Status</th>
+        <th>Role</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.email }}</td>
+        <td>{{ u.name or '' }}</td>
+        <td>
+          {% if u.registered %}
+            <span class="badge badge-registered">Registered</span>
+          {% else %}
+            <span class="badge badge-pending">Invited</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if u.is_admin %}
+            <span class="badge badge-admin">Admin</span>
+          {% else %}
+            User
+          {% endif %}
+        </td>
+        <td class="actions">
+          {% if u.is_admin %}
+            <form method="post" action="/admin/users/demote" style="margin:0;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <input type="hidden" name="email" value="{{ u.email }}" />
+              <button type="submit" class="btn btn-sm btn-outline" onclick="return confirm('Remove admin from {{ u.email }}?')">Remove Admin</button>
+            </form>
+          {% else %}
+            <form method="post" action="/admin/users/promote" style="margin:0;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <input type="hidden" name="email" value="{{ u.email }}" />
+              <button type="submit" class="btn btn-sm btn-outline">Make Admin</button>
+            </form>
+          {% endif %}
+          {% if not u.is_self %}
+            <form method="post" action="/admin/users/remove" style="margin:0;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <input type="hidden" name="email" value="{{ u.email }}" />
+              <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove {{ u.email }} from authorized users?')">Remove</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not users %}
+      <tr><td colspan="5" class="empty">No authorized users yet.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <p class="back-link"><a href="/">&larr; Back to Dashboard</a></p>
+
+  {% include "partials/footer.html" %}
+</body>
+</html>
