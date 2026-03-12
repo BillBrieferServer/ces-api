@@ -159,7 +159,23 @@ def require_admin(request: Request) -> Optional[RedirectResponse]:
 # --- Auth Middleware for API routes ---
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        # TEMPORARY: Auth bypassed — MFA emails blocked by corporate firewall
+        path = request.url.path
+        # Public paths that don't need auth
+        if (path.startswith("/auth/") or
+            path.startswith("/static/") or
+            path == "/health" or
+            path == "/manifest.json" or
+            path == "/sw.js" or
+            path.startswith("/icons/") or
+            path == "/not-authorized"):
+            return await call_next(request)
+        # Check auth for everything else (API + SPA)
+        user = current_user(request)
+        if not user:
+            # API requests get 401, browser requests get redirect
+            if path.startswith("/api/"):
+                return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+            return RedirectResponse(url="/auth/login", status_code=302)
         return await call_next(request)
 
 app.add_middleware(AuthMiddleware)
