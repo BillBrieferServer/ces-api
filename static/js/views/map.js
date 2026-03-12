@@ -132,16 +132,32 @@ async function showCountyPanel(countyId, countyName) {
     const typeLabels = {
       city: "Cities", county: "County Government", school_district: "School Districts",
       alternative_school: "Alternative Schools", fire_district: "Fire Districts",
-      highway_district: "Highway Districts",
+      highway_district: "Highway Districts", cemetery_district: "Cemetery Districts",
+      irrigation_district: "Irrigation Districts", library_district: "Library Districts",
+      soil_water_district: "Soil/Water Conservation", recreation_district: "Recreation Districts",
+      water_district: "Water Districts", drainage_district: "Drainage Districts",
+      sewer_district: "Sewer Districts", sewer_water_district: "Sewer/Water Districts",
+      flood_control_district: "Flood Control Districts", housing_authority: "Housing Authorities",
+      hospital_district: "Hospital Districts", health_district: "Health Districts",
+      natural_resource_district: "Natural Resource Districts", solid_waste_district: "Solid Waste Districts",
+      special_district: "Other Special Districts", airport_authority: "Airport Authority",
+      transit_authority: "Transit Authority", port_authority: "Port Authority",
     };
-    const typeOrder = ["city", "county", "fire_district", "highway_district", "school_district", "alternative_school"];
+    const typeOrder = ["city", "county", "fire_district", "highway_district", "school_district",
+      "alternative_school", "cemetery_district", "irrigation_district", "library_district",
+      "soil_water_district", "recreation_district", "water_district", "drainage_district",
+      "sewer_district", "sewer_water_district", "flood_control_district", "housing_authority",
+      "hospital_district", "health_district", "natural_resource_district", "solid_waste_district",
+      "special_district", "airport_authority", "transit_authority", "port_authority"];
 
     html += `<div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px">${data.entities.length} entities</div>`;
 
-    typeOrder.forEach(type => {
+    // Render known types first, then any remaining
+    const allTypes = [...new Set([...typeOrder, ...Object.keys(grouped)])];
+    allTypes.forEach(type => {
       const items = grouped[type];
       if (!items) return;
-      html += `<div class="section-header" style="margin-top:12px">${typeLabels[type] || type} (${items.length})</div>`;
+      html += `<div class="section-header" style="margin-top:12px">${typeLabels[type] || type.replace(/_/g, " ")} (${items.length})</div>`;
       items.forEach(e => {
         html += `<div class="list-item" data-id="${e.jurisdiction_id}" data-name="${e.name}">
           <div class="list-item-title">${e.name}</div>
