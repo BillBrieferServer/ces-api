@@ -1,4 +1,4 @@
-import { api, navigate, phoneLink, emailLink } from "../app.js";
+import { api, navigate, phoneLink, emailLink, showToast } from "../app.js";
 
 export async function renderOfficials(el) {
   el.innerHTML = `
@@ -44,15 +44,47 @@ export async function renderOfficials(el) {
     }
 
     listEl.innerHTML = data.map(o => `
-      <div class="list-item">
-        <div class="list-item-title">${o.name}</div>
-        <div class="list-item-sub">${o.title || ""} &mdash; ${o.jurisdiction_name || ""}</div>
+      <div class="list-item" style="position:relative">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="flex:1;min-width:0" data-goto-jurisdiction="${o.jurisdiction_id || ""}" data-goto-name="${(o.jurisdiction_name || "").replace(/"/g, '&quot;')}">
+            <div class="list-item-title">${o.name}</div>
+            <div class="list-item-sub">${o.title || ""} &mdash; ${o.jurisdiction_name || ""}</div>
+          </div>
+          <button class="btn btn-sm" data-edit-off="${o.official_id}"
+            data-off-name="${(o.name || "").replace(/"/g, '&quot;')}"
+            data-off-title="${(o.title || "").replace(/"/g, '&quot;')}"
+            data-off-phone="${o.phone || ""}"
+            data-off-email="${o.email || ""}"
+            style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px;margin-left:8px;flex-shrink:0">&#9998;</button>
+        </div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
           ${o.phone ? phoneLink(o.phone) : ""}
           ${o.email ? emailLink(o.email) : ""}
         </div>
       </div>
     `).join("");
+
+    // Tap row to go to jurisdiction detail
+    listEl.querySelectorAll("[data-goto-jurisdiction]").forEach(row => {
+      if (!row.dataset.gotoJurisdiction) return;
+      row.style.cursor = "pointer";
+      row.addEventListener("click", () => {
+        navigate("jurisdiction-detail", { id: row.dataset.gotoJurisdiction, name: row.dataset.gotoName });
+      });
+    });
+
+    // Edit buttons
+    listEl.querySelectorAll("[data-edit-off]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showEditOfficialModal(btn.dataset.editOff, {
+          name: btn.dataset.offName,
+          title: btn.dataset.offTitle,
+          phone: btn.dataset.offPhone,
+          email: btn.dataset.offEmail,
+        }, load);
+      });
+    });
   }
 
   let debounce;
@@ -65,4 +97,64 @@ export async function renderOfficials(el) {
     debounce = setTimeout(load, 300);
   });
   el.querySelector("#off-title").addEventListener("change", load);
+}
+
+function showEditOfficialModal(officialId, existing, refreshFn) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Contact</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input class="form-input" id="off-name" value="${existing.name || ""}" placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input class="form-input" id="off-title" value="${existing.title || ""}" placeholder="Mayor, Clerk, Commissioner...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-input" id="off-phone" type="tel" value="${existing.phone || ""}" placeholder="(208) 555-1234">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="off-email" type="email" value="${existing.email || ""}" placeholder="name@example.com">
+      </div>
+      <button class="btn btn-primary btn-block" id="off-submit">Save Changes</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#off-submit").addEventListener("click", async () => {
+    const name = overlay.querySelector("#off-name").value.trim();
+    const title = overlay.querySelector("#off-title").value.trim();
+    const phone = overlay.querySelector("#off-phone").value.trim();
+    const email = overlay.querySelector("#off-email").value.trim();
+
+    if (!name) { showToast("Name is required"); return; }
+
+    const body = {};
+    if (name !== existing.name) body.name = name;
+    if (title !== existing.title) body.title = title;
+    if (phone !== (existing.phone || "")) body.phone = phone || null;
+    if (email !== (existing.email || "")) body.email = email || null;
+
+    if (Object.keys(body).length === 0) { overlay.remove(); return; }
+
+    try {
+      await api(`/officials/${officialId}`, { method: "PUT", body });
+      showToast("Contact updated");
+      overlay.remove();
+      refreshFn();
+    } catch (err) {
+      showToast("Error: " + err.message);
+    }
+  });
 }
