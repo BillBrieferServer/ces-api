@@ -33,7 +33,7 @@ app = FastAPI(title="CES Idaho Regional Manager API", version="1.0.0", docs_url=
 # --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://ces.quietimpact.ai", "http://localhost:3000"],
+    allow_origins=["https://ces.quietimpact.ai"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -167,8 +167,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             path == "/manifest.json" or
             path == "/sw.js" or
             path.startswith("/icons/") or
-            path == "/not-authorized" or
-            path.startswith("/admin/")):
+            path == "/not-authorized"):
             return await call_next(request)
         # Check auth for everything else (API + SPA)
         user = current_user(request)
