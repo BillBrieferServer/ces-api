@@ -59,13 +59,19 @@ export async function renderJurisdictionDetail(el, id) {
     </div>`;
 
     // Officials
-    html += `<div class="section-header">Officials (${j.officials.length})</div>`;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
+      <span class="section-header" style="margin:0">Officials (${j.officials.length})</span>
+      <button class="btn btn-primary btn-sm" id="add-official-btn">+ Add Contact</button>
+    </div>`;
     if (j.officials.length === 0) {
       html += `<div class="card"><div class="empty">No officials on file</div></div>`;
     } else {
       j.officials.forEach(off => {
         html += `<div class="card" style="padding:12px 16px">
-          <div style="font-weight:600;font-size:0.95rem">${off.name}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:600;font-size:0.95rem">${off.name}</div>
+            <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" style="padding:4px 10px;font-size:0.8rem;min-height:32px">&#9998;</button>
+          </div>
           <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${off.title || ""}</div>
           <div style="display:flex;gap:16px;flex-wrap:wrap">
             ${off.phone ? phoneLink(off.phone) : ""}
@@ -151,6 +157,24 @@ export async function renderJurisdictionDetail(el, id) {
       });
     });
 
+    // Edit official buttons
+    el.querySelectorAll("[data-edit-official]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        showOfficialModal(el, id, {
+          official_id: parseInt(btn.dataset.editOfficial),
+          name: btn.dataset.offName,
+          title: btn.dataset.offTitle,
+          phone: btn.dataset.offPhone,
+          email: btn.dataset.offEmail,
+        });
+      });
+    });
+
+    // Add official button
+    el.querySelector("#add-official-btn").addEventListener("click", () => {
+      showOfficialModal(el, id, null);
+    });
+
   } catch (err) {
     el.innerHTML = `<div class="empty">Failed to load: ${err.message}</div>`;
   }
@@ -225,5 +249,74 @@ function showInteractionModal(parentEl, jurisdictionId, officials) {
     overlay.remove();
     showToast("Interaction logged");
     renderJurisdictionDetail(parentEl, jurisdictionId);
+  });
+}
+
+
+function showOfficialModal(parentEl, jurisdictionId, existing) {
+  const isEdit = !!existing;
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>${isEdit ? "Edit Contact" : "Add Contact"}</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input class="form-input" id="off-name" value="${isEdit ? (existing.name || "") : ""}" placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input class="form-input" id="off-title" value="${isEdit ? (existing.title || "") : ""}" placeholder="Mayor, Clerk, Commissioner...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-input" id="off-phone" type="tel" value="${isEdit ? (existing.phone || "") : ""}" placeholder="(208) 555-1234">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="off-email" type="email" value="${isEdit ? (existing.email || "") : ""}" placeholder="name@example.com">
+      </div>
+      <button class="btn btn-primary btn-block" id="off-submit">${isEdit ? "Save Changes" : "Add Contact"}</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#off-submit").addEventListener("click", async () => {
+    const name = overlay.querySelector("#off-name").value.trim();
+    const title = overlay.querySelector("#off-title").value.trim();
+    const phone = overlay.querySelector("#off-phone").value.trim();
+    const email = overlay.querySelector("#off-email").value.trim();
+
+    if (!name) { showToast("Name is required"); return; }
+    if (!isEdit && !title) { showToast("Title is required"); return; }
+
+    try {
+      if (isEdit) {
+        const body = {};
+        if (name !== existing.name) body.name = name;
+        if (title !== existing.title) body.title = title;
+        if (phone !== (existing.phone || "")) body.phone = phone || null;
+        if (email !== (existing.email || "")) body.email = email || null;
+        if (Object.keys(body).length === 0) { overlay.remove(); return; }
+        await api(`/officials/${existing.official_id}`, { method: "PUT", body });
+        showToast("Contact updated");
+      } else {
+        const body = { jurisdiction_id: parseInt(jurisdictionId), name, title };
+        if (phone) body.phone = phone;
+        if (email) body.email = email;
+        await api("/officials", { method: "POST", body });
+        showToast("Contact added");
+      }
+      overlay.remove();
+      renderJurisdictionDetail(parentEl, jurisdictionId);
+    } catch (err) {
+      showToast("Error: " + err.message);
+    }
   });
 }

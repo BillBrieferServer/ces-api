@@ -4,7 +4,7 @@ from sqlalchemy import text
 from typing import Optional
 
 from database import get_db
-from models import OfficialListItem, OfficialDetail, InteractionSummary
+from models import OfficialListItem, OfficialDetail, InteractionSummary, OfficialCreate, OfficialUpdateRequest, OfficialResponse
 
 router = APIRouter(prefix="/officials", tags=["officials"])
 
@@ -77,3 +77,61 @@ async def get_official(official_id: int, db: AsyncSession = Depends(get_db)):
     data["interactions"] = [InteractionSummary(**dict(r)) for r in result.mappings().all()]
 
     return OfficialDetail(**data)
+
+
+@router.post("", response_model=OfficialResponse, status_code=201)
+async def create_official(data: OfficialCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(text("""
+        INSERT INTO common.officials (jurisdiction_id, name, title, phone, email,
+                                      mailing_address, physical_address, source, source_date)
+        VALUES (:jurisdiction_id, :name, :title, :phone, :email,
+                :mailing_address, :physical_address, 'CES Field Update', CURRENT_DATE)
+        RETURNING official_id, jurisdiction_id, name, title, phone, email,
+                  mailing_address, physical_address, source, source_date
+    """), {
+        "jurisdiction_id": data.jurisdiction_id,
+        "name": data.name,
+        "title": data.title,
+        "phone": data.phone,
+        "email": data.email,
+        "mailing_address": data.mailing_address,
+        "physical_address": data.physical_address,
+    })
+    await db.commit()
+    row = result.mappings().first()
+    return OfficialResponse(**dict(row))
+
+
+@router.put("/{official_id}", response_model=OfficialResponse)
+async def update_official(official_id: int, data: OfficialUpdateRequest, db: AsyncSession = Depends(get_db)):
+    # Build SET clause from provided fields only
+    updates = {}
+    fields = data.model_dump(exclude_unset=True)
+    if not fields:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    set_parts = []
+    for field_name, value in fields.items():
+        set_parts.append(f"{field_name} = :{field_name}")
+        updates[field_name] = value
+
+    # Always set source fields
+    set_parts.append("source = 'CES Field Update'")
+    set_parts.append("source_date = CURRENT_DATE")
+    updates["oid"] = official_id
+
+    sql = f"""
+        UPDATE common.officials
+        SET {", ".join(set_parts)}
+        WHERE official_id = :oid
+        RETURNING official_id, jurisdiction_id, name, title, phone, email,
+                  mailing_address, physical_address, source, source_date
+    """
+    result = await db.execute(text(sql), updates)
+    await db.commit()
+    row = result.mappings().first()
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Official not found")
+    return OfficialResponse(**dict(row))

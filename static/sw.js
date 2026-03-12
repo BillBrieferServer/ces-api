@@ -1,4 +1,4 @@
-const CACHE_NAME = "ces-v4";
+const CACHE_NAME = "ces-v5";
 const SHELL = ["/", "/static/css/style.css", "/static/js/app.js", "/static/js/views/search.js", "/manifest.json", "/icons/icon-192.png"];
 
 self.addEventListener("install", e => {

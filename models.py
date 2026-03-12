@@ -189,3 +189,37 @@ class MorningBrief(BaseModel):
     upcoming_board_targets: list[dict] = []
     pipeline_summary: list[PipelineCount] = []
     recent_interactions: list[InteractionListItem] = []
+
+
+# ── Official Create/Update ──
+
+class OfficialCreate(BaseModel):
+    jurisdiction_id: int
+    name: str
+    title: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    mailing_address: Optional[str] = None
+    physical_address: Optional[str] = None
+
+
+class OfficialUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    title: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    mailing_address: Optional[str] = None
+    physical_address: Optional[str] = None
+
+
+class OfficialResponse(BaseModel):
+    official_id: int
+    jurisdiction_id: Optional[int] = None
+    name: str
+    title: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    mailing_address: Optional[str] = None
+    physical_address: Optional[str] = None
+    source: Optional[str] = None
+    source_date: Optional[date] = None
