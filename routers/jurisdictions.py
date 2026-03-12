@@ -58,6 +58,7 @@ async def list_jurisdictions(
         LEFT JOIN ces.outreach_status os ON os.jurisdiction_id = j.jurisdiction_id
         {where_clause}
         ORDER BY {order}
+        LIMIT 200
     """
 
     result = await db.execute(text(sql), params)

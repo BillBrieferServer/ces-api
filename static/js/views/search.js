@@ -4,7 +4,7 @@ export async function renderSearch(el) {
   el.innerHTML = `
     <div style="padding:20px 0 12px;text-align:center">
       <div style="font-size:1.4rem;font-weight:700;margin-bottom:4px">CES Idaho</div>
-      <div style="font-size:0.8rem;color:var(--text-dim)">749 entities &middot; 2,973 officials</div>
+      <div style="font-size:0.8rem;color:var(--text-dim)">1,336 entities &middot; 1,759 officials</div>
     </div>
     <input class="search-bar" type="search" placeholder="Search anything..." id="global-search"
            style="font-size:1.1rem;padding:14px 18px" autofocus>

@@ -1,17 +1,39 @@
 import { api, navigate, badge } from "../app.js";
 
-let currentFilters = { type: "", district: "", status: "", sort: "population", search: "" };
+let currentFilters = { type: "", district: "", status: "", sort: "name", search: "" };
 
 export async function renderJurisdictions(el) {
   el.innerHTML = `
     <input class="search-bar" type="search" placeholder="Search entities..." id="j-search">
     <div class="filter-row">
-      <button class="chip active" data-type="">All</button>
-      <button class="chip" data-type="city">Cities</button>
-      <button class="chip" data-type="county">Counties</button>
-      <button class="chip" data-type="school_district">Schools</button>
-    </div>
-    <div class="filter-row">
+      <select class="filter-select" id="j-type" style="flex:2">
+        <option value="">All Types</option>
+        <option value="city">Cities</option>
+        <option value="county">Counties</option>
+        <option value="school_district">School Districts</option>
+        <option value="fire_district">Fire Districts</option>
+        <option value="highway_district">Highway Districts</option>
+        <option value="cemetery_district">Cemetery Districts</option>
+        <option value="irrigation_district">Irrigation Districts</option>
+        <option value="library_district">Library Districts</option>
+        <option value="soil_water_district">Soil/Water Conservation</option>
+        <option value="recreation_district">Recreation Districts</option>
+        <option value="water_district">Water Districts</option>
+        <option value="drainage_district">Drainage Districts</option>
+        <option value="sewer_district">Sewer Districts</option>
+        <option value="sewer_water_district">Sewer/Water Districts</option>
+        <option value="flood_control_district">Flood Control Districts</option>
+        <option value="housing_authority">Housing Authorities</option>
+        <option value="hospital_district">Hospital Districts</option>
+        <option value="health_district">Health Districts</option>
+        <option value="natural_resource_district">Natural Resource Districts</option>
+        <option value="solid_waste_district">Solid Waste Districts</option>
+        <option value="special_district">Other Special Districts</option>
+        <option value="alternative_school">Alternative Schools</option>
+        <option value="airport_authority">Airport Authority</option>
+        <option value="transit_authority">Transit Authority</option>
+        <option value="port_authority">Port Authority</option>
+      </select>
       <select class="filter-select" id="j-district">
         <option value="">All Districts</option>
         ${[1,2,3,4,5,6].map(d => `<option value="${d}">District ${d}</option>`).join("")}
@@ -72,14 +94,7 @@ export async function renderJurisdictions(el) {
   }
 
   // Event handlers
-  el.querySelectorAll("[data-type]").forEach(chip => {
-    chip.addEventListener("click", () => {
-      el.querySelectorAll("[data-type]").forEach(c => c.classList.remove("active"));
-      chip.classList.add("active");
-      currentFilters.type = chip.dataset.type;
-      load();
-    });
-  });
+  el.querySelector("#j-type").addEventListener("change", e => { currentFilters.type = e.target.value; load(); });
 
   el.querySelector("#j-district").addEventListener("change", e => { currentFilters.district = e.target.value; load(); });
   el.querySelector("#j-status").addEventListener("change", e => { currentFilters.status = e.target.value; load(); });
