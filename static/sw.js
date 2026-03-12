@@ -1,5 +1,5 @@
-const CACHE_NAME = "ces-v1";
-const SHELL = ["/", "/static/css/style.css", "/static/js/app.js", "/manifest.json", "/icons/icon-192.png"];
+const CACHE_NAME = "ces-v2";
+const SHELL = ["/", "/static/css/style.css", "/static/js/app.js", "/static/js/views/search.js", "/manifest.json", "/icons/icon-192.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(SHELL)));

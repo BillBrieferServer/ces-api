@@ -1,3 +1,4 @@
+import { renderSearch } from "./views/search.js";
 import { renderBrief } from "./views/brief.js";
 import { renderJurisdictions } from "./views/jurisdictions.js";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js";
@@ -9,7 +10,7 @@ const headerTitle = document.getElementById("header-title");
 const backBtn = document.getElementById("back-btn");
 const navBtns = document.querySelectorAll(".nav-btn");
 
-let currentView = "brief";
+let currentView = "search";
 let viewStack = [];
 
 export async function api(path, opts = {}) {
@@ -53,8 +54,13 @@ function render(view, params) {
   });
 
   switch (view) {
-    case "brief":
+    case "search":
       headerTitle.textContent = "CES Idaho";
+      backBtn.classList.add("hidden");
+      renderSearch(content);
+      break;
+    case "brief":
+      headerTitle.textContent = "Morning Brief";
       backBtn.classList.add("hidden");
       renderBrief(content);
       break;
@@ -126,4 +132,4 @@ if ("serviceWorker" in navigator) {
 }
 
 // Initial render
-navigate("brief", {}, false);
+navigate("search", {}, false);
