@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
-from routers import jurisdictions, officials, outreach, interactions, vendors, brief, search
+from routers import jurisdictions, officials, outreach, interactions, vendors, brief, search, geo
 
 app = FastAPI(title="CES Idaho Regional Manager API", version="1.0.0")
 
@@ -23,6 +23,7 @@ app.include_router(interactions.router, prefix="/api")
 app.include_router(vendors.router, prefix="/api")
 app.include_router(brief.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
+app.include_router(geo.router, prefix="/api")
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

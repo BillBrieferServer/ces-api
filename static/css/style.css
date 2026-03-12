@@ -309,3 +309,11 @@ a.contact-link:active { color: var(--accent-dim); }
   animation: spin 0.6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Map overrides */
+.leaflet-container { background: var(--bg) !important; }
+.leaflet-control-zoom a {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}

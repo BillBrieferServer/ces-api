@@ -4,6 +4,7 @@ import { renderJurisdictions } from "./views/jurisdictions.js";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js";
 import { renderOfficials } from "./views/officials.js";
 import { renderVendors } from "./views/vendors.js";
+import { renderMap } from "./views/map.js";
 
 const content = document.getElementById("content");
 const headerTitle = document.getElementById("header-title");
@@ -83,6 +84,11 @@ function render(view, params) {
       headerTitle.textContent = "Vendors";
       backBtn.classList.add("hidden");
       renderVendors(content);
+      break;
+    case "map":
+      headerTitle.textContent = "Map";
+      backBtn.classList.add("hidden");
+      renderMap(content);
       break;
   }
 }
