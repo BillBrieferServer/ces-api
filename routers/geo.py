@@ -15,7 +15,7 @@ async def county_geojson(db: AsyncSession = Depends(get_db)):
         SELECT c.county_id, c.county_name,
                ST_AsGeoJSON(ST_SimplifyPreserveTopology(c.geometry, 0.005))::json as geometry,
                count(DISTINCT j.jurisdiction_id) as entity_count,
-               count(DISTINCT j.jurisdiction_id) FILTER (WHERE os.status != 'not_contacted') as active_count
+               count(DISTINCT j.jurisdiction_id) FILTER (WHERE os.status NOT IN ('not_contacted', 'not_started')) as active_count
         FROM common.counties c
         LEFT JOIN common.jurisdictions j ON j.county_id = c.county_id
         LEFT JOIN ces.outreach_status os ON os.jurisdiction_id = j.jurisdiction_id

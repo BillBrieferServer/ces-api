@@ -1,5 +1,21 @@
 import { api, phoneLink, emailLink, badge, formatDate, showToast } from "../app.js";
 
+function lastFirst(name) {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  const last = parts[parts.length - 1];
+  const rest = parts.slice(0, -1).join(" ");
+  return last + ", " + rest;
+}
+
+function getLastName(name) {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  return parts[parts.length - 1].toLowerCase();
+}
+
+
 export async function renderJurisdictionDetail(el, id) {
   try {
     const j = await api(`/jurisdictions/${id}`);
@@ -60,25 +76,46 @@ export async function renderJurisdictionDetail(el, id) {
 
     // Officials
     html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
-      <span class="section-header" style="margin:0">Officials (${j.officials.length})</span>
+      <span class="section-header" style="margin:0">Key Personnel (${j.officials.length})</span>
       <button class="btn btn-primary btn-sm" id="add-official-btn">+ Add Contact</button>
     </div>`;
-    if (j.officials.length === 0) {
-      html += `<div class="card"><div class="empty">No officials on file</div></div>`;
-    } else {
-      j.officials.forEach(off => {
-        html += `<div class="card" style="padding:12px 16px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="font-weight:600;font-size:0.95rem">${off.name}</div>
-            <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">&#9998;</button>
-          </div>
-          <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${off.title || ""}</div>
-          <div style="display:flex;gap:16px;flex-wrap:wrap">
-            ${off.phone ? phoneLink(off.phone) : ""}
-            ${off.email ? emailLink(off.email) : ""}
-          </div>
-        </div>`;
+    if (j.officials.length > 1) {
+      html += `<div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn btn-sm sort-btn" id="sort-name" style="padding:4px 12px;font-size:0.8rem;min-height:28px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Sort by Name</button>
+        <button class="btn btn-sm sort-btn" id="sort-title" style="padding:4px 12px;font-size:0.8rem;min-height:28px;background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:6px">Sort by Position</button>
+      </div>`;
+    }
+    html += `<div id="officials-list"></div>`;
+
+    // Store officials data for sorting
+    const officialsData = j.officials;
+    let currentSort = "title";
+
+    function renderOfficials(sortBy) {
+      currentSort = sortBy;
+      const sorted = [...officialsData].sort((a, b) => {
+        if (sortBy === "name") return getLastName(a.name).localeCompare(getLastName(b.name));
+        return (a.title || "").localeCompare(b.title || "") || getLastName(a.name).localeCompare(getLastName(b.name));
       });
+      let listHtml = "";
+      if (sorted.length === 0) {
+        listHtml = `<div class="card"><div class="empty">No officials on file</div></div>`;
+      } else {
+        sorted.forEach(off => {
+          listHtml += `<div class="card" style="padding:12px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:600;font-size:0.95rem">${lastFirst(off.name)}</div>
+              <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">&#9998;</button>
+            </div>
+            <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${off.title || ""}</div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+              ${off.phone ? phoneLink(off.phone) : ""}
+              ${off.email ? emailLink(off.email) : ""}
+            </div>
+          </div>`;
+        });
+      }
+      return listHtml;
     }
 
     // Interactions
@@ -123,6 +160,57 @@ export async function renderJurisdictionDetail(el, id) {
 
     el.innerHTML = html;
 
+    // Render officials list
+    const officialsList = el.querySelector("#officials-list");
+    if (officialsList) {
+      officialsList.innerHTML = renderOfficials("title");
+    }
+
+    // Sort button handlers
+    const sortNameBtn = el.querySelector("#sort-name");
+    const sortTitleBtn = el.querySelector("#sort-title");
+    function updateSortButtons(active) {
+      if (sortNameBtn && sortTitleBtn) {
+        [sortNameBtn, sortTitleBtn].forEach(b => {
+          b.style.background = "rgba(255,255,255,0.08)";
+          b.style.color = "var(--text-dim)";
+          b.style.borderColor = "rgba(255,255,255,0.12)";
+        });
+        const activeBtn = active === "name" ? sortNameBtn : sortTitleBtn;
+        activeBtn.style.background = "var(--accent)";
+        activeBtn.style.color = "#fff";
+        activeBtn.style.borderColor = "var(--accent)";
+      }
+    }
+    if (sortNameBtn) {
+      sortNameBtn.addEventListener("click", () => {
+        officialsList.innerHTML = renderOfficials("name");
+        updateSortButtons("name");
+        wireEditButtons();
+      });
+    }
+    if (sortTitleBtn) {
+      sortTitleBtn.addEventListener("click", () => {
+        officialsList.innerHTML = renderOfficials("title");
+        updateSortButtons("title");
+        wireEditButtons();
+      });
+    }
+
+    function wireEditButtons() {
+      el.querySelectorAll("[data-edit-official]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          showOfficialModal(el, id, {
+            official_id: parseInt(btn.dataset.editOfficial),
+            name: btn.dataset.offName,
+            title: btn.dataset.offTitle,
+            phone: btn.dataset.offPhone,
+            email: btn.dataset.offEmail,
+          });
+        });
+      });
+    }
+
     // Save outreach handler
     el.querySelector("#save-outreach").addEventListener("click", async () => {
       const body = {};
@@ -157,18 +245,8 @@ export async function renderJurisdictionDetail(el, id) {
       });
     });
 
-    // Edit official buttons
-    el.querySelectorAll("[data-edit-official]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        showOfficialModal(el, id, {
-          official_id: parseInt(btn.dataset.editOfficial),
-          name: btn.dataset.offName,
-          title: btn.dataset.offTitle,
-          phone: btn.dataset.offPhone,
-          email: btn.dataset.offEmail,
-        });
-      });
-    });
+    // Wire edit official buttons (initial render)
+    wireEditButtons();
 
     // Add official button
     el.querySelector("#add-official-btn").addEventListener("click", () => {

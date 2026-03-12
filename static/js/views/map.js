@@ -19,8 +19,9 @@ export async function renderMap(el) {
     </div>
     <div id="county-panel" class="hidden" style="position:fixed;bottom:calc(var(--nav-height) + var(--safe-bottom));
          left:0;right:0;max-height:50dvh;background:var(--bg);border-radius:var(--radius) var(--radius) 0 0;
-         padding:16px;overflow-y:auto;z-index:1001;box-shadow:0 -4px 20px rgba(0,0,0,0.5)">
-      <div id="county-panel-content"></div>
+         padding:0;overflow-y:hidden;z-index:1001;display:flex;flex-direction:column;box-shadow:0 -4px 20px rgba(0,0,0,0.5)">
+      <div id="county-panel-header" style="padding:16px 16px 0 16px;flex-shrink:0"></div>
+      <div id="county-panel-content" style="overflow-y:auto;padding:0 16px 16px 16px;flex:1"></div>
     </div>
   `;
 
@@ -106,21 +107,24 @@ async function showCountyPanel(countyId, countyName) {
   const content = document.getElementById("county-panel-content");
   panel.classList.remove("hidden");
 
-  content.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+  const header = document.getElementById("county-panel-header");
+  header.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:1.1rem">${countyName} County</h2>
     <button id="close-panel" style="background:none;border:none;color:var(--text-dim);font-size:1.5rem;
       width:44px;height:44px;cursor:pointer">&times;</button>
-  </div><div class="spinner"></div>`;
+  </div>`;
+  content.innerHTML = `<div class="spinner"></div>`;
 
   document.getElementById("close-panel").addEventListener("click", () => panel.classList.add("hidden"));
 
   try {
     const data = await api(`/geo/county/${countyId}/entities`);
-    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    header.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="font-size:1.1rem">${data.county_name} County</h2>
       <button id="close-panel2" style="background:none;border:none;color:var(--text-dim);font-size:1.5rem;
         width:44px;height:44px;cursor:pointer">&times;</button>
     </div>`;
+    let html = ``;
 
     // Group by type
     const grouped = {};
