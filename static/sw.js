@@ -1,5 +1,5 @@
-const CACHE_NAME = "ces-v5";
-const SHELL = ["/", "/static/css/style.css", "/static/js/app.js", "/static/js/views/search.js", "/manifest.json", "/icons/icon-192.png"];
+const CACHE_NAME = "ces-v6";
+const SHELL = ["/", "/static/css/style.css", "/static/js/app.js", "/manifest.json"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(SHELL)));
@@ -16,6 +16,12 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   if (e.request.url.includes("/api/")) return;
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match("/")))
+    fetch(e.request).then(r => {
+      if (r.ok) {
+        const clone = r.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+      }
+      return r;
+    }).catch(() => caches.match(e.request).then(r => r || caches.match("/")))
   );
 });

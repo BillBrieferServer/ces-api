@@ -70,7 +70,7 @@ export async function renderJurisdictionDetail(el, id) {
         html += `<div class="card" style="padding:12px 16px">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div style="font-weight:600;font-size:0.95rem">${off.name}</div>
-            <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" style="padding:4px 10px;font-size:0.8rem;min-height:32px">&#9998;</button>
+            <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">&#9998;</button>
           </div>
           <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${off.title || ""}</div>
           <div style="display:flex;gap:16px;flex-wrap:wrap">

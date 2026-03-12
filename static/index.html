@@ -46,6 +46,14 @@
     </button>
   </nav>
 </div>
+<script>
+// Force service worker update
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.update());
+  });
+}
+</script>
 <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>
