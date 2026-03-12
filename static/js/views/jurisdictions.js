@@ -1,5 +1,20 @@
 import { api, navigate, badge } from "../app.js";
 
+
+function displayName(name, type) {
+  if (type === "city" && name.startsWith("City of ")) {
+    return name.slice(8) + ", City of";
+  }
+  return name;
+}
+
+function sortKey(name, type) {
+  if (type === "city" && name.startsWith("City of ")) {
+    return name.slice(8);
+  }
+  return name;
+}
+
 let currentFilters = { type: "", district: "", status: "", sort: "name", search: "" };
 
 export async function renderJurisdictions(el) {
@@ -67,7 +82,8 @@ export async function renderJurisdictions(el) {
 
     const data = await api(`/jurisdictions?${params}`);
     const search = currentFilters.search.toLowerCase();
-    const filtered = search ? data.filter(j => j.name.toLowerCase().includes(search)) : data;
+    const searched = search ? data.filter(j => j.name.toLowerCase().includes(search)) : data;
+    const filtered = currentFilters.sort === "name" ? searched.sort((a, b) => sortKey(a.name, a.type).localeCompare(sortKey(b.name, b.type))) : searched;
 
     if (filtered.length === 0) {
       listEl.innerHTML = `<div class="empty">No matching entities</div>`;
@@ -76,7 +92,7 @@ export async function renderJurisdictions(el) {
 
     listEl.innerHTML = filtered.map(j => `
       <div class="list-item" data-id="${j.jurisdiction_id}" data-name="${j.name}">
-        <div class="list-item-title">${j.name}</div>
+        <div class="list-item-title">${displayName(j.name, j.type)}</div>
         <div class="list-item-sub">${j.county_name || ""} County</div>
         <div class="list-item-meta">
           ${badge(j.type, "")}
