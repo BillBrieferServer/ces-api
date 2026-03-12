@@ -67,7 +67,7 @@ export async function renderMap(el) {
       },
       onEachFeature: (feature, layer) => {
         const p = feature.properties;
-        layer.on("click", () => showCountyPanel(p.county_id, p.name));
+        layer.on("click", (e) => { L.DomEvent.stopPropagation(e); showCountyPanel(p.county_id, p.name); });
         layer.on("mouseover", function() { this.setStyle({ weight: 2, color: "#0ea5e9" }); });
         layer.on("mouseout", function() { geojsonLayer.resetStyle(this); });
 
