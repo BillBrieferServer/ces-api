@@ -369,6 +369,31 @@ async def admin_users_demote(request: Request, email: str = Form(...), csrf_toke
     _save_admin_emails(admins)
     return RedirectResponse(url=f"/admin/users?success=Admin+removed+from+{email}", status_code=302)
 
+# --- Request Access ---
+@app.get("/auth/request-access")
+async def request_access_page(request: Request):
+    return templates.TemplateResponse("auth/request_access.html", {"request": request})
+
+@app.post("/auth/request-access")
+async def request_access_submit(request: Request, name: str = Form(""), email: str = Form(""), csrf_token: str = Form("")):
+    if not _require_csrf(request, csrf_token):
+        return templates.TemplateResponse("auth/request_access.html", {"request": request, "error": "Invalid request. Please try again."})
+    name = name.strip()
+    email = email.strip().lower()
+    if not name or not email or "@" not in email:
+        return templates.TemplateResponse("auth/request_access.html", {"request": request, "error": "Please enter both your name and a valid email."})
+    from auth.auth_email import send_email
+    from datetime import datetime
+    body = f"""New access request for CES Idaho:
+
+Name:  {name}
+Email: {email}
+Time:  {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
+
+To approve, log in to https://ces.quietimpact.ai/admin/users and add this email to the authorized users list."""
+    send_email("steve@quietimpact.ai", f"CES Access Request: {name} ({email})", body)
+    return templates.TemplateResponse("auth/request_access.html", {"request": request, "success": True})
+
 # --- SPA Fallback ---
 @app.get("/")
 @app.get("/{path:path}")
