@@ -175,7 +175,7 @@ async def get_schedule(
         text(
             "SELECT si.id, si.title, si.item_date, si.item_time, si.end_date, si.item_type,"
             " si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,"
-            " cs.org_abbrev, cs.color as org_color, e.location as event_location"
+            " cs.org_abbrev, cs.color as org_color, e.location as event_location, si.assigned_to"
             " FROM schedule_items si"
             " LEFT JOIN events e ON e.id = si.source_event_id"
             " LEFT JOIN calendar_sources cs ON cs.id = e.source_id"
@@ -204,6 +204,7 @@ async def get_schedule(
             "org_abbrev": r["org_abbrev"],
             "org_color": r["org_color"],
             "location": r["event_location"],
+            "assigned_to": r["assigned_to"],
         }
         for r in rows
     ]
@@ -296,16 +297,17 @@ async def create_custom_schedule_item(
     item_date: str = Query(...),
     item_type: str = Query("custom"),
     notes: Optional[str] = Query(None),
+    assigned_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a custom schedule item (not linked to an entity or event)."""
     result = await db.execute(
         text("""
-            INSERT INTO schedule_items (title, item_date, item_type, notes)
-            VALUES (:title, :item_date, :item_type, :notes)
+            INSERT INTO schedule_items (title, item_date, item_type, notes, assigned_to)
+            VALUES (:title, :item_date, :item_type, :notes, :assigned_to)
             RETURNING id
         """),
-        {"title": title, "item_date": date.fromisoformat(item_date), "item_type": item_type, "notes": notes},
+        {"title": title, "item_date": date.fromisoformat(item_date), "item_type": item_type, "notes": notes, "assigned_to": assigned_to or None},
     )
     await db.commit()
     row = result.first()
@@ -319,6 +321,7 @@ async def update_schedule_item(
     title: Optional[str] = None,
     item_date: Optional[str] = None,
     notes: Optional[str] = None,
+    assigned_to: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Update a schedule item. When marking complete, clears entity next_action fields."""
@@ -349,6 +352,10 @@ async def update_schedule_item(
     if notes is not None:
         set_parts.append("notes = :notes")
         params["notes"] = notes if notes else None
+
+    if assigned_to is not None:
+        set_parts.append("assigned_to = :assigned_to")
+        params["assigned_to"] = assigned_to if assigned_to else None
 
     set_clause = ", ".join(set_parts)
     sql = "UPDATE schedule_items SET " + set_clause + " WHERE id = :id"

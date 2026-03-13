@@ -78,6 +78,12 @@ export async function renderSchedule(el) {
         <option value="presentation">Present</option>
         <option value="event">Event</option>
       </select>
+      <select id="sched-add-assigned" class="form-select" style="flex:0 0 auto;width:90px;padding:6px 8px;font-size:12px">
+        <option value="">Assign</option>
+        <option value="Steve">Steve</option>
+        <option value="Drew">Drew</option>
+        <option value="Both">Both</option>
+      </select>
       <button class="btn btn-primary btn-sm" id="sched-add-btn" style="padding:6px 12px;font-size:12px;min-height:30px">+ Add</button>
     </div>`;
 
@@ -124,6 +130,15 @@ export async function renderSchedule(el) {
                 <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Notes</label>
                 <input id="sched-edit-notes" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.notes || ''}" placeholder="Notes..." />
               </div>
+              <div>
+                <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Assigned to</label>
+                <select id="sched-edit-assigned" class="form-select" style="padding:4px 8px;font-size:12px">
+                  <option value="">Unassigned</option>
+                  <option value="Steve" ${item.assigned_to === 'Steve' ? 'selected' : ''}>Steve</option>
+                  <option value="Drew" ${item.assigned_to === 'Drew' ? 'selected' : ''}>Drew</option>
+                  <option value="Both" ${item.assigned_to === 'Both' ? 'selected' : ''}>Both</option>
+                </select>
+              </div>
               <div style="display:flex;gap:6px;justify-content:flex-end">
                 <button class="btn btn-primary btn-sm sched-edit-save" data-sid="${item.id}" style="padding:4px 12px;font-size:11px;min-height:0">Save</button>
                 <button class="btn btn-sm sched-edit-cancel" style="padding:4px 12px;font-size:11px;min-height:0;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border)">Cancel</button>
@@ -138,6 +153,7 @@ export async function renderSchedule(el) {
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                   <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${badge.bg};color:${badge.color}">${badge.label}</span>
                   ${item.org_abbrev ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:${item.org_color || '#475569'}22;color:${item.org_color || '#475569'}">${item.org_abbrev}</span>` : ""}
+                ${item.assigned_to ? `<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;background:rgba(168,85,247,0.15);color:#9333EA">${item.assigned_to}</span>` : ""}
                   <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
                 </div>
                 ${item.location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.location}</div>` : ""}
@@ -228,11 +244,13 @@ export async function renderSchedule(el) {
         const title = el.querySelector("#sched-edit-title").value.trim();
         const item_date = el.querySelector("#sched-edit-date").value;
         const notes = el.querySelector("#sched-edit-notes").value.trim();
+        const assigned = el.querySelector("#sched-edit-assigned") ? el.querySelector("#sched-edit-assigned").value : "";
         if (!title || !item_date) return;
         const params = new URLSearchParams();
         params.set("title", title);
         params.set("item_date", item_date);
         params.set("notes", notes);
+        params.set("assigned_to", assigned);
         await api(`/calendar/schedule/${sid}?${params}`, { method: "PATCH" });
         editingItem = null;
         await Promise.all([loadSchedule(), loadStats()]);
@@ -265,8 +283,12 @@ export async function renderSchedule(el) {
       const title = titleEl.value.trim();
       const itemDate = dateEl.value;
       const itemType = typeEl.value;
+      const assignedEl = el.querySelector("#sched-add-assigned");
+      const assigned = assignedEl ? assignedEl.value : "";
       if (!title || !itemDate) return;
-      await api(`/calendar/schedule/custom?title=${encodeURIComponent(title)}&item_date=${itemDate}&item_type=${itemType}`, { method: "POST" });
+      let addUrl = `/calendar/schedule/custom?title=${encodeURIComponent(title)}&item_date=${itemDate}&item_type=${itemType}`;
+      if (assigned) addUrl += `&assigned_to=${encodeURIComponent(assigned)}`;
+      await api(addUrl, { method: "POST" });
       titleEl.value = "";
       await Promise.all([loadSchedule(), loadStats()]);
       render();
