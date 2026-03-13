@@ -236,10 +236,10 @@ async def update_event(
         params["title"] = title
     if event_date is not None:
         set_parts.append("event_date = :event_date")
-        params["event_date"] = event_date
+        params["event_date"] = date.fromisoformat(event_date)
     if end_date is not None:
         set_parts.append("end_date = :end_date")
-        params["end_date"] = end_date if end_date else None
+        params["end_date"] = date.fromisoformat(end_date) if end_date else None
     if location is not None:
         set_parts.append("location = :location")
         params["location"] = location if location else None
