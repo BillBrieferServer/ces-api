@@ -1,6 +1,6 @@
 import { api, formatDate, navigate } from "../app.js";
 
-const ROLLING = 10;
+const ROLLING = 90;
 const MO = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
