@@ -1,8 +1,8 @@
 import { renderSearch } from "./views/search.js";
-import { renderCalendar } from "./views/calendar.js";
-import { renderBrief } from "./views/brief.js";
+import { renderCalendar } from "./views/calendar.js?v=1773377743";
+import { renderBrief } from "./views/brief.js?v=1773377743";
 import { renderJurisdictions } from "./views/jurisdictions.js";
-import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js";
+import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773377743";
 import { renderOfficials } from "./views/officials.js";
 import { renderVendors } from "./views/vendors.js";
 import { renderMap } from "./views/map.js";
