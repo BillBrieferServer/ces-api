@@ -158,28 +158,31 @@ async def get_schedule(
 
     # Date range: include overdue items (before start_date) if requested
     if include_overdue:
-        conditions.append("(item_date <= :end_date)")
+        conditions.append("(si.item_date <= :end_date)")
     else:
-        conditions.append("(item_date BETWEEN :start_date AND :end_date)")
+        conditions.append("(si.item_date BETWEEN :start_date AND :end_date)")
 
     if not include_completed:
-        conditions.append("completed = false")
+        conditions.append("si.completed = false")
 
     if item_type:
-        conditions.append("item_type = :item_type")
+        conditions.append("si.item_type = :item_type")
         params["item_type"] = item_type
 
     where = " AND ".join(conditions)
 
     result = await db.execute(
         text(
-            "SELECT id, title, item_date, item_time, end_date, item_type,"
-            " source_event_id, entity_id, entity_name, notes, completed"
-            " FROM schedule_items"
+            "SELECT si.id, si.title, si.item_date, si.item_time, si.end_date, si.item_type,"
+            " si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,"
+            " cs.org_abbrev, cs.color as org_color"
+            " FROM schedule_items si"
+            " LEFT JOIN events e ON e.id = si.source_event_id"
+            " LEFT JOIN calendar_sources cs ON cs.id = e.source_id"
             " WHERE " + where +
             " ORDER BY"
-            " CASE WHEN item_date < :today THEN 0 ELSE 1 END,"
-            " item_date, item_time"
+            " CASE WHEN si.item_date < :today THEN 0 ELSE 1 END,"
+            " si.item_date, si.item_time"
         ),
         params,
     )
@@ -198,6 +201,8 @@ async def get_schedule(
             "notes": r["notes"],
             "completed": r["completed"],
             "overdue": r["item_date"] < today and not r["completed"],
+            "org_abbrev": r["org_abbrev"],
+            "org_color": r["org_color"],
         }
         for r in rows
     ]

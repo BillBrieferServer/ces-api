@@ -112,6 +112,7 @@ export async function renderSchedule(el) {
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${badge.bg};color:${badge.color}">${badge.label}</span>
+                ${item.org_abbrev ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:${item.org_color || '#475569'}22;color:${item.org_color || '#475569'}">${item.org_abbrev}</span>` : ""}
                 <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
               </div>
               ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="sched-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
