@@ -70,6 +70,7 @@ export async function renderSchedule(el) {
     // Quick add bar
     html += `<div style="display:flex;gap:6px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
       <input type="date" id="sched-add-date" class="form-input" style="flex:0 0 auto;width:140px;padding:6px 8px;font-size:12px" value="${fmt(today)}">
+      <input type="time" id="sched-add-time" class="form-input" style="flex:0 0 auto;width:100px;padding:6px 8px;font-size:12px" placeholder="Time">
       <input type="text" id="sched-add-title" class="form-input" style="flex:1;min-width:120px;padding:6px 8px;font-size:12px" placeholder="Title...">
       <select id="sched-add-type" class="form-select" style="flex:0 0 auto;width:110px;padding:6px 8px;font-size:12px">
         <option value="custom">Custom</option>
@@ -125,6 +126,10 @@ export async function renderSchedule(el) {
                   <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Date</label>
                   <input id="sched-edit-date" type="date" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.item_date}" />
                 </div>
+                <div style="flex:0 0 90px">
+                  <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Time</label>
+                  <input id="sched-edit-time" type="time" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.item_time ? item.item_time.slice(0,5) : ''}" />
+                </div>
               </div>
               <div>
                 <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Notes</label>
@@ -154,7 +159,8 @@ export async function renderSchedule(el) {
                   <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${badge.bg};color:${badge.color}">${badge.label}</span>
                   ${item.org_abbrev ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:${item.org_color || '#475569'}22;color:${item.org_color || '#475569'}">${item.org_abbrev}</span>` : ""}
                 ${item.assigned_to ? `<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;background:rgba(168,85,247,0.15);color:#9333EA">${item.assigned_to}</span>` : ""}
-                  <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
+                  ${item.item_time ? `<span style="font-size:11px;color:var(--text-muted)">${item.item_time.slice(0,5)}</span>` : ""}
+                <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
                 </div>
                 ${item.location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.location}</div>` : ""}
                 ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="sched-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
@@ -251,6 +257,8 @@ export async function renderSchedule(el) {
         params.set("item_date", item_date);
         params.set("notes", notes);
         params.set("assigned_to", assigned);
+        const itemTime = el.querySelector("#sched-edit-time") ? el.querySelector("#sched-edit-time").value : "";
+        if (itemTime) params.set("item_time", itemTime);
         await api(`/calendar/schedule/${sid}?${params}`, { method: "PATCH" });
         editingItem = null;
         await Promise.all([loadSchedule(), loadStats()]);
@@ -285,9 +293,12 @@ export async function renderSchedule(el) {
       const itemType = typeEl.value;
       const assignedEl = el.querySelector("#sched-add-assigned");
       const assigned = assignedEl ? assignedEl.value : "";
+      const timeEl = el.querySelector("#sched-add-time");
+      const itemTime = timeEl ? timeEl.value : "";
       if (!title || !itemDate) return;
       let addUrl = `/calendar/schedule/custom?title=${encodeURIComponent(title)}&item_date=${itemDate}&item_type=${itemType}`;
       if (assigned) addUrl += `&assigned_to=${encodeURIComponent(assigned)}`;
+      if (itemTime) addUrl += `&item_time=${encodeURIComponent(itemTime)}`;
       await api(addUrl, { method: "POST" });
       titleEl.value = "";
       await Promise.all([loadSchedule(), loadStats()]);

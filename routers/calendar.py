@@ -298,16 +298,17 @@ async def create_custom_schedule_item(
     item_type: str = Query("custom"),
     notes: Optional[str] = Query(None),
     assigned_to: Optional[str] = Query(None),
+    item_time: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a custom schedule item (not linked to an entity or event)."""
     result = await db.execute(
         text("""
-            INSERT INTO schedule_items (title, item_date, item_type, notes, assigned_to)
-            VALUES (:title, :item_date, :item_type, :notes, :assigned_to)
+            INSERT INTO schedule_items (title, item_date, item_time, item_type, notes, assigned_to)
+            VALUES (:title, :item_date, :item_time, :item_type, :notes, :assigned_to)
             RETURNING id
         """),
-        {"title": title, "item_date": date.fromisoformat(item_date), "item_type": item_type, "notes": notes, "assigned_to": assigned_to or None},
+        {"title": title, "item_date": date.fromisoformat(item_date), "item_time": time.fromisoformat(item_time) if item_time else None, "item_type": item_type, "notes": notes, "assigned_to": assigned_to or None},
     )
     await db.commit()
     row = result.first()
@@ -322,6 +323,7 @@ async def update_schedule_item(
     item_date: Optional[str] = None,
     notes: Optional[str] = None,
     assigned_to: Optional[str] = None,
+    item_time: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Update a schedule item. When marking complete, clears entity next_action fields."""
@@ -356,6 +358,10 @@ async def update_schedule_item(
     if assigned_to is not None:
         set_parts.append("assigned_to = :assigned_to")
         params["assigned_to"] = assigned_to if assigned_to else None
+
+    if item_time is not None:
+        set_parts.append("item_time = :item_time")
+        params["item_time"] = time.fromisoformat(item_time) if item_time else None
 
     set_clause = ", ".join(set_parts)
     sql = "UPDATE schedule_items SET " + set_clause + " WHERE id = :id"
