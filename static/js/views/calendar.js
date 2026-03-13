@@ -105,7 +105,7 @@ export async function renderCalendar(el) {
     return `<div class="cal-event" data-eid="${e.id}" style="border-left:3px solid ${e.color}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="font-weight:600;font-size:13px;color:var(--text)">${e.title}</div>
-        <span style="font-size:11px;color:${e.color};font-weight:600;white-space:nowrap;margin-left:8px">${e.org}</span>
+        <span class="cal-org-badge" style="background:${e.color}">${e.org}</span>
       </div>
       ${e.location ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${e.location}</div>` : ""}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
