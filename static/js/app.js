@@ -1,8 +1,9 @@
 import { renderSearch } from "./views/search.js";
-import { renderCalendar } from "./views/calendar.js?v=1773377743";
-import { renderBrief } from "./views/brief.js?v=1773377743";
+import { renderSchedule } from "./views/schedule.js?v=1773378207";
+import { renderCalendar } from "./views/calendar.js?v=1773378207";
+import { renderBrief } from "./views/brief.js?v=1773378207";
 import { renderJurisdictions } from "./views/jurisdictions.js";
-import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773377743";
+import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773378207";
 import { renderOfficials } from "./views/officials.js";
 import { renderVendors } from "./views/vendors.js";
 import { renderMap } from "./views/map.js";
@@ -85,6 +86,11 @@ function render(view, params) {
       headerTitle.textContent = "Vendors";
       backBtn.classList.add("hidden");
       renderVendors(content);
+      break;
+    case "schedule":
+      headerTitle.textContent = "My Schedule";
+      backBtn.classList.add("hidden");
+      renderSchedule(content);
       break;
     case "calendar":
       headerTitle.textContent = "Events Calendar";
