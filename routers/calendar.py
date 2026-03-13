@@ -175,7 +175,7 @@ async def get_schedule(
         text(
             "SELECT si.id, si.title, si.item_date, si.item_time, si.end_date, si.item_type,"
             " si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,"
-            " cs.org_abbrev, cs.color as org_color"
+            " cs.org_abbrev, cs.color as org_color, e.location as event_location"
             " FROM schedule_items si"
             " LEFT JOIN events e ON e.id = si.source_event_id"
             " LEFT JOIN calendar_sources cs ON cs.id = e.source_id"
@@ -203,6 +203,7 @@ async def get_schedule(
             "overdue": r["item_date"] < today and not r["completed"],
             "org_abbrev": r["org_abbrev"],
             "org_color": r["org_color"],
+            "location": r["event_location"],
         }
         for r in rows
     ]

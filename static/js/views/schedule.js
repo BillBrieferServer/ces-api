@@ -115,6 +115,7 @@ export async function renderSchedule(el) {
                 ${item.org_abbrev ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:${item.org_color || '#475569'}22;color:${item.org_color || '#475569'}">${item.org_abbrev}</span>` : ""}
                 <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
               </div>
+              ${item.location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.location}</div>` : ""}
               ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="sched-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
               ${item.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${item.notes}</div>` : ""}
             </div>
