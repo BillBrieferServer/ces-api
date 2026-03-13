@@ -262,9 +262,9 @@ async def create_custom_schedule_item(
 @router.patch("/calendar/schedule/{item_id}")
 async def update_schedule_item(
     item_id: int,
-    completed: Optional[bool] = Query(None),
-    title: Optional[str] = Query(None),
-    item_date: Optional[str] = Query(None),
+    completed: Optional[bool] = None,
+    title: Optional[str] = None,
+    item_date: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Update a schedule item. When marking complete, clears entity next_action fields."""
