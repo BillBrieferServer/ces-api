@@ -230,7 +230,7 @@ select.filter-select:focus { border-color: var(--accent); }
   font-family: inherit;
 }
 .form-textarea { min-height: 100px; resize: vertical; }
-input[type="date"], input[type="time"] { color-scheme: dark; }input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+input[type="date"], input[type="time"] { color-scheme: dark; }input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1) brightness(2); cursor: pointer; }
 .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); }
 
 /* Links */
