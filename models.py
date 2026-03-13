@@ -187,6 +187,8 @@ class PipelineCount(BaseModel):
 
 class MorningBrief(BaseModel):
     today: date
+    schedule_overdue: list[dict] = []
+    schedule_today: list[dict] = []
     pending_followups: list[InteractionListItem] = []
     upcoming_actions: list[dict] = []
     pipeline_summary: list[PipelineCount] = []

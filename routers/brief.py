@@ -13,6 +13,36 @@ router = APIRouter(tags=["brief"])
 async def morning_brief(db: AsyncSession = Depends(get_db)):
     today = date.today()
 
+    # Schedule: overdue items (before today, not completed)
+    result = await db.execute(text("""
+        SELECT id, title, item_date, item_time, item_type,
+               source_event_id, entity_id, entity_name, notes, completed
+        FROM public.schedule_items
+        WHERE item_date < :today AND completed = false
+        ORDER BY item_date, item_time
+    """), {"today": today})
+    schedule_overdue = [
+        {**dict(r), "item_date": str(r["item_date"]),
+         "item_time": str(r["item_time"]) if r["item_time"] else None,
+         "overdue": True}
+        for r in result.mappings().all()
+    ]
+
+    # Schedule: today items (not completed)
+    result = await db.execute(text("""
+        SELECT id, title, item_date, item_time, item_type,
+               source_event_id, entity_id, entity_name, notes, completed
+        FROM public.schedule_items
+        WHERE item_date = :today AND completed = false
+        ORDER BY item_time, title
+    """), {"today": today})
+    schedule_today = [
+        {**dict(r), "item_date": str(r["item_date"]),
+         "item_time": str(r["item_time"]) if r["item_time"] else None,
+         "overdue": False}
+        for r in result.mappings().all()
+    ]
+
     # Pending follow-ups (follow_up_date <= today, not completed)
     result = await db.execute(text("""
         SELECT i.interaction_id, i.jurisdiction_id,
@@ -64,6 +94,8 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
 
     return MorningBrief(
         today=today,
+        schedule_overdue=schedule_overdue,
+        schedule_today=schedule_today,
         pending_followups=pending,
         upcoming_actions=actions,
         pipeline_summary=pipeline,
