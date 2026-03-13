@@ -344,7 +344,7 @@ async def update_schedule_item(
 
     if item_date is not None:
         set_parts.append("item_date = :item_date")
-        params["item_date"] = item_date
+        params["item_date"] = date.fromisoformat(item_date)
 
     if notes is not None:
         set_parts.append("notes = :notes")
