@@ -1,6 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  color-scheme: dark;
   --bg: #1a1a2e;
   --bg-card: #16213e;
   --bg-input: #0f1a30;
@@ -230,8 +231,6 @@ select.filter-select:focus { border-color: var(--accent); }
   font-family: inherit;
 }
 .form-textarea { min-height: 100px; resize: vertical; }
-input[type="date"], input[type="time"] { color-scheme: dark; }
-input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1) brightness(2) !important; cursor: pointer; opacity: 1 !important; }
 .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); }
 
 /* Links */
