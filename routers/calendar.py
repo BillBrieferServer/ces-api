@@ -305,7 +305,7 @@ async def create_custom_schedule_item(
             VALUES (:title, :item_date, :item_type, :notes)
             RETURNING id
         """),
-        {"title": title, "item_date": item_date, "item_type": item_type, "notes": notes},
+        {"title": title, "item_date": date.fromisoformat(item_date), "item_type": item_type, "notes": notes},
     )
     await db.commit()
     row = result.first()
