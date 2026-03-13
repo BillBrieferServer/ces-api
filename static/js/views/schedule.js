@@ -28,14 +28,27 @@ export async function renderSchedule(el) {
   let showCompleted = false;
   let stats = {};
   let editingItem = null;
+  let viewMode = "rolling"; // "rolling", "pending", "overdue"
 
   async function loadSchedule() {
     try {
-      const endDate = addD(schedStart, ROLLING);
-      const params = `start=${fmt(schedStart)}&end=${fmt(endDate)}&include_overdue=true&include_completed=${showCompleted}`;
-      let url = `/calendar/schedule?${params}`;
+      let url;
+      if (viewMode === "pending") {
+        const today = fmt(new Date());
+        url = `/calendar/schedule?start=${today}&end=2099-12-31&include_overdue=false&include_completed=false`;
+      } else if (viewMode === "overdue") {
+        const today = fmt(new Date());
+        url = `/calendar/schedule?start=2000-01-01&end=${today}&include_overdue=true&include_completed=false`;
+      } else {
+        const endDate = addD(schedStart, ROLLING);
+        url = `/calendar/schedule?start=${fmt(schedStart)}&end=${fmt(endDate)}&include_overdue=true&include_completed=${showCompleted}`;
+      }
       if (schedFilter) url += `&item_type=${schedFilter}`;
       schedItems = await api(url);
+      if (viewMode === "overdue") {
+        const today = fmt(new Date());
+        schedItems = schedItems.filter(i => i.item_date < today && !i.completed);
+      }
     } catch (err) {
       schedItems = [];
     }
@@ -56,8 +69,8 @@ export async function renderSchedule(el) {
 
     // Stats row
     html += `<div class="stats-row" style="margin-bottom:12px">
-      <div class="stat-card"><div class="stat-value">${stats.scheduled || 0}</div><div class="stat-label">Pending</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.overdue || 0}</div><div class="stat-label">Overdue</div></div>
+      <div class="stat-card" id="stat-pending" style="cursor:pointer;${viewMode === 'pending' ? 'outline:2px solid var(--primary);' : ''}"><div class="stat-value">${stats.scheduled || 0}</div><div class="stat-label">Pending</div></div>
+      <div class="stat-card" id="stat-overdue" style="cursor:pointer;${viewMode === 'overdue' ? 'outline:2px solid var(--primary);' : ''}"><div class="stat-value">${stats.overdue || 0}</div><div class="stat-label">Overdue</div></div>
     </div>`;
 
     // Nav controls
@@ -187,6 +200,18 @@ export async function renderSchedule(el) {
   }
 
   function bind() {
+    // Stat card clicks
+    const pendingCard = el.querySelector("#stat-pending");
+    const overdueCard = el.querySelector("#stat-overdue");
+    if (pendingCard) pendingCard.addEventListener("click", async () => {
+      viewMode = viewMode === "pending" ? "rolling" : "pending";
+      await loadSchedule(); render();
+    });
+    if (overdueCard) overdueCard.addEventListener("click", async () => {
+      viewMode = viewMode === "overdue" ? "rolling" : "overdue";
+      await loadSchedule(); render();
+    });
+
     // Nav
     const prev = el.querySelector("#sched-prev");
     const next = el.querySelector("#sched-next");
