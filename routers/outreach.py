@@ -7,6 +7,14 @@ from models import OutreachUpdate, OutreachDetail
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
 
+ACTION_TYPE_MAP = {
+    "Visit": "entity_visit",
+    "Call": "follow_up",
+    "Present": "presentation",
+    "Follow-up": "follow_up",
+    "Send info": "follow_up",
+}
+
 
 @router.put("/{jurisdiction_id}", response_model=OutreachDetail)
 async def update_outreach(
@@ -48,15 +56,86 @@ async def update_outreach(
 
     set_parts.append("updated_date = now()")
 
-    sql = f"UPDATE ces.outreach_status SET {', '.join(set_parts)} WHERE jurisdiction_id = :jid"
+    set_clause = ", ".join(set_parts)
+    sql = f"UPDATE ces.outreach_status SET {set_clause} WHERE jurisdiction_id = :jid"
     await db.execute(text(sql), params)
+
+    # Schedule items wiring for next_action_date changes
+    if "next_action_date" in fields or "next_action_type" in fields:
+        await _sync_schedule_item(db, jurisdiction_id, fields)
+
     await db.commit()
 
     # Return updated record
-    result = await db.execute(text("""
-        SELECT status, assigned_rm, priority_tier, first_contact_date,
-               board_meeting_target, board_approval_date, ces_member_since, notes
-        FROM ces.outreach_status WHERE jurisdiction_id = :jid
-    """), {"jid": jurisdiction_id})
+    result = await db.execute(text(
+        "SELECT status, assigned_rm, priority, first_contact_date,"
+        " next_action_date, next_action_type, board_approval_date,"
+        " ces_member_since, notes"
+        " FROM ces.outreach_status WHERE jurisdiction_id = :jid"
+    ), {"jid": jurisdiction_id})
     row = result.mappings().first()
     return OutreachDetail(**dict(row))
+
+
+async def _sync_schedule_item(db: AsyncSession, jurisdiction_id: int, fields: dict):
+    """Auto-create/update/delete schedule_items when next_action_date changes."""
+
+    # Get current entity outreach state (after the UPDATE above)
+    result = await db.execute(
+        text(
+            "SELECT os.next_action_date, os.next_action_type, j.name"
+            " FROM ces.outreach_status os"
+            " JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id"
+            " WHERE os.jurisdiction_id = :jid"
+        ),
+        {"jid": jurisdiction_id},
+    )
+    row = result.mappings().first()
+    new_date = row["next_action_date"]
+    new_type = row["next_action_type"]
+    entity_name = row["name"]
+
+    # Find existing incomplete entity-sourced schedule item
+    existing = await db.execute(
+        text(
+            "SELECT id FROM schedule_items"
+            " WHERE entity_id = :eid AND completed = false AND source_event_id IS NULL"
+        ),
+        {"eid": jurisdiction_id},
+    )
+    existing_row = existing.first()
+
+    if new_date:
+        item_type = ACTION_TYPE_MAP.get(new_type, "custom")
+        label = new_type if new_type else "Action"
+        title = label + " \u2014 " + entity_name
+
+        if existing_row:
+            await db.execute(
+                text(
+                    "UPDATE schedule_items"
+                    " SET title = :title, item_date = :item_date, item_type = :item_type, updated_at = now()"
+                    " WHERE id = :sid"
+                ),
+                {"title": title, "item_date": new_date, "item_type": item_type, "sid": existing_row[0]},
+            )
+        else:
+            await db.execute(
+                text(
+                    "INSERT INTO schedule_items (title, item_date, item_type, entity_id, entity_name)"
+                    " VALUES (:title, :item_date, :item_type, :entity_id, :entity_name)"
+                ),
+                {
+                    "title": title,
+                    "item_date": new_date,
+                    "item_type": item_type,
+                    "entity_id": jurisdiction_id,
+                    "entity_name": entity_name,
+                },
+            )
+    else:
+        if existing_row:
+            await db.execute(
+                text("DELETE FROM schedule_items WHERE id = :sid"),
+                {"sid": existing_row[0]},
+            )

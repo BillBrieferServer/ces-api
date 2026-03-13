@@ -57,9 +57,10 @@ class ProfileDetail(BaseModel):
 class OutreachDetail(BaseModel):
     status: Optional[str] = None
     assigned_rm: Optional[str] = None
-    priority_tier: Optional[int] = None
+    priority: Optional[str] = None
     first_contact_date: Optional[date] = None
-    board_meeting_target: Optional[date] = None
+    next_action_date: Optional[date] = None
+    next_action_type: Optional[str] = None
     board_approval_date: Optional[date] = None
     ces_member_since: Optional[date] = None
     notes: Optional[str] = None
@@ -104,9 +105,10 @@ class OfficialDetail(OfficialListItem):
 class OutreachUpdate(BaseModel):
     status: Optional[str] = None
     assigned_rm: Optional[str] = None
-    priority_tier: Optional[int] = None
+    priority: Optional[str] = None
     first_contact_date: Optional[date] = None
-    board_meeting_target: Optional[date] = None
+    next_action_date: Optional[date] = None
+    next_action_type: Optional[str] = None
     board_approval_date: Optional[date] = None
     ces_member_since: Optional[date] = None
     notes: Optional[str] = None
@@ -186,7 +188,7 @@ class PipelineCount(BaseModel):
 class MorningBrief(BaseModel):
     today: date
     pending_followups: list[InteractionListItem] = []
-    upcoming_board_targets: list[dict] = []
+    upcoming_actions: list[dict] = []
     pipeline_summary: list[PipelineCount] = []
     recent_interactions: list[InteractionListItem] = []
 

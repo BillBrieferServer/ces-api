@@ -144,21 +144,44 @@ async def add_events(events: List[dict] = Body(...), db: AsyncSession = Depends(
 async def get_schedule(
     start: Optional[str] = None,
     end: Optional[str] = None,
+    item_type: Optional[str] = None,
+    include_completed: bool = False,
+    include_overdue: bool = True,
     db: AsyncSession = Depends(get_db),
 ):
     today = date.today()
     start_date = date.fromisoformat(start) if start else today
-    end_date = date.fromisoformat(end) if end else today + timedelta(days=30)
+    end_date = date.fromisoformat(end) if end else today + timedelta(days=10)
+
+    conditions = []
+    params = {"start_date": start_date, "end_date": end_date, "today": today}
+
+    # Date range: include overdue items (before start_date) if requested
+    if include_overdue:
+        conditions.append("(item_date <= :end_date)")
+    else:
+        conditions.append("(item_date BETWEEN :start_date AND :end_date)")
+
+    if not include_completed:
+        conditions.append("completed = false")
+
+    if item_type:
+        conditions.append("item_type = :item_type")
+        params["item_type"] = item_type
+
+    where = " AND ".join(conditions)
 
     result = await db.execute(
-        text("""
-            SELECT id, title, item_date, item_time, end_date, item_type,
-                   source_event_id, entity_id, entity_name, notes, completed
-            FROM schedule_items
-            WHERE item_date BETWEEN :start_date AND :end_date
-            ORDER BY item_date, item_time
-        """),
-        {"start_date": start_date, "end_date": end_date},
+        text(
+            "SELECT id, title, item_date, item_time, end_date, item_type,"
+            " source_event_id, entity_id, entity_name, notes, completed"
+            " FROM schedule_items"
+            " WHERE " + where +
+            " ORDER BY"
+            " CASE WHEN item_date < :today THEN 0 ELSE 1 END,"
+            " item_date, item_time"
+        ),
+        params,
     )
     rows = result.mappings().all()
     return [
@@ -174,6 +197,7 @@ async def get_schedule(
             "entity_name": r["entity_name"],
             "notes": r["notes"],
             "completed": r["completed"],
+            "overdue": r["item_date"] < today and not r["completed"],
         }
         for r in rows
     ]
@@ -213,6 +237,80 @@ async def add_to_schedule(event_id: int = Query(...), db: AsyncSession = Depends
     return {"ok": True}
 
 
+@router.post("/calendar/schedule/custom")
+async def create_custom_schedule_item(
+    title: str = Query(...),
+    item_date: str = Query(...),
+    item_type: str = Query("custom"),
+    notes: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a custom schedule item (not linked to an entity or event)."""
+    result = await db.execute(
+        text("""
+            INSERT INTO schedule_items (title, item_date, item_type, notes)
+            VALUES (:title, :item_date, :item_type, :notes)
+            RETURNING id
+        """),
+        {"title": title, "item_date": item_date, "item_type": item_type, "notes": notes},
+    )
+    await db.commit()
+    row = result.first()
+    return {"ok": True, "id": row[0]}
+
+
+@router.patch("/calendar/schedule/{item_id}")
+async def update_schedule_item(
+    item_id: int,
+    completed: Optional[bool] = Query(None),
+    title: Optional[str] = Query(None),
+    item_date: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a schedule item. When marking complete, clears entity next_action fields."""
+    # Check item exists
+    result = await db.execute(
+        text("SELECT id, entity_id, completed FROM schedule_items WHERE id = :id"),
+        {"id": item_id},
+    )
+    item = result.mappings().first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Schedule item not found")
+
+    set_parts = ["updated_at = now()"]
+    params = {"id": item_id}
+
+    if completed is not None:
+        set_parts.append("completed = :completed")
+        params["completed"] = completed
+
+    if title is not None:
+        set_parts.append("title = :title")
+        params["title"] = title
+
+    if item_date is not None:
+        set_parts.append("item_date = :item_date")
+        params["item_date"] = item_date
+
+    set_clause = ", ".join(set_parts)
+    sql = "UPDATE schedule_items SET " + set_clause + " WHERE id = :id"
+    await db.execute(text(sql), params)
+
+    # When marking complete and linked to an entity, clear entity next_action fields
+    if completed and item["entity_id"]:
+        await db.execute(
+            text(
+                "UPDATE ces.outreach_status"
+                " SET next_action_date = NULL, next_action_type = NULL, updated_date = now()"
+                " WHERE jurisdiction_id = :jid"
+            ),
+            {"jid": item["entity_id"]},
+        )
+
+    await db.commit()
+    return {"ok": True}
+
+
 @router.delete("/calendar/schedule/{item_id}")
 async def remove_from_schedule(item_id: int, db: AsyncSession = Depends(get_db)):
     await db.execute(text("DELETE FROM schedule_items WHERE id = :id"), {"id": item_id})
@@ -226,15 +324,27 @@ async def calendar_stats(db: AsyncSession = Depends(get_db)):
     ten_days = today + timedelta(days=10)
 
     next10 = await db.execute(
-        text("SELECT COUNT(*) FROM events e JOIN calendar_sources cs ON cs.id = e.source_id WHERE cs.active = true AND e.event_date BETWEEN :today AND :ten"),
+        text(
+            "SELECT COUNT(*) FROM events e"
+            " JOIN calendar_sources cs ON cs.id = e.source_id"
+            " WHERE cs.active = true AND e.event_date BETWEEN :today AND :ten"
+        ),
         {"today": today, "ten": ten_days},
     )
     upcoming = await db.execute(
-        text("SELECT COUNT(*) FROM events e JOIN calendar_sources cs ON cs.id = e.source_id WHERE cs.active = true AND e.event_date >= :today"),
+        text(
+            "SELECT COUNT(*) FROM events e"
+            " JOIN calendar_sources cs ON cs.id = e.source_id"
+            " WHERE cs.active = true AND e.event_date >= :today"
+        ),
         {"today": today},
     )
     scheduled = await db.execute(
         text("SELECT COUNT(*) FROM schedule_items WHERE completed = false"),
+    )
+    overdue = await db.execute(
+        text("SELECT COUNT(*) FROM schedule_items WHERE completed = false AND item_date < :today"),
+        {"today": today},
     )
     sources = await db.execute(
         text("SELECT COUNT(*) FROM calendar_sources WHERE active = true"),
@@ -244,5 +354,6 @@ async def calendar_stats(db: AsyncSession = Depends(get_db)):
         "next_10_days": next10.scalar(),
         "total_upcoming": upcoming.scalar(),
         "scheduled": scheduled.scalar(),
+        "overdue": overdue.scalar(),
         "sources": sources.scalar(),
     }

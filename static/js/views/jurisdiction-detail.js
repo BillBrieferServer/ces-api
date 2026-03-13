@@ -15,6 +15,14 @@ function getLastName(name) {
   return parts[parts.length - 1].toLowerCase();
 }
 
+const PRIORITY_COLORS = {
+  hot: { bg: "rgba(220,38,38,0.15)", text: "#DC2626", border: "#DC2626" },
+  warm: { bg: "rgba(180,83,9,0.15)", text: "#B45309", border: "#B45309" },
+  cold: { bg: "rgba(100,116,139,0.15)", text: "#64748B", border: "#64748B" },
+};
+
+const ACTION_TYPES = ["Visit", "Call", "Present", "Follow-up", "Send info"];
+
 
 export async function renderJurisdictionDetail(el, id) {
   try {
@@ -57,15 +65,33 @@ export async function renderJurisdictionDetail(el, id) {
         <input class="form-input" id="o-rm" value="${o.assigned_rm || ""}" placeholder="Steve / Drew">
       </div>
       <div class="form-group">
-        <label class="form-label">Priority Tier</label>
-        <select class="form-select" id="o-tier">
-          <option value="">Not set</option>
-          ${[1,2,3,4,5].map(t => `<option value="${t}" ${o.priority_tier === t ? "selected" : ""}>Tier ${t}</option>`).join("")}
-        </select>
+        <label class="form-label">Priority</label>
+        <div id="priority-pills" style="display:flex;gap:8px;margin-top:4px">
+          ${["hot","warm","cold"].map(p => {
+            const c = PRIORITY_COLORS[p];
+            const active = o.priority === p;
+            return `<button class="priority-pill" data-priority="${p}" style="
+              padding:6px 16px;border-radius:20px;font-size:0.85rem;font-weight:600;
+              cursor:pointer;transition:all 0.15s;border:2px solid ${active ? c.border : "transparent"};
+              background:${active ? c.bg : "rgba(255,255,255,0.06)"};
+              color:${active ? c.text : "var(--text-dim)"};
+            ">${p.charAt(0).toUpperCase() + p.slice(1)}</button>`;
+          }).join("")}
+        </div>
+        <input type="hidden" id="o-priority" value="${o.priority || ""}">
       </div>
       <div class="form-group">
-        <label class="form-label">Board Meeting Target</label>
-        <input class="form-input" id="o-board" type="date" value="${o.board_meeting_target || ""}">
+        <label class="form-label">Next Action</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="form-input" id="o-action-date" type="date" value="${o.next_action_date || ""}" style="flex:1">
+          <select class="form-select" id="o-action-type" style="flex:1">
+            <option value="">Type...</option>
+            ${ACTION_TYPES.map(t => `<option value="${t}" ${o.next_action_type === t ? "selected" : ""}>${t}</option>`).join("")}
+          </select>
+        </div>
+        ${o.next_action_date ? `<div style="font-size:0.8rem;color:var(--accent);margin-top:4px">
+          Scheduled: ${o.next_action_type || "Action"} ${formatDate(o.next_action_date)}
+        </div>` : ""}
       </div>
       <div class="form-group">
         <label class="form-label">Notes</label>
@@ -166,6 +192,27 @@ export async function renderJurisdictionDetail(el, id) {
       officialsList.innerHTML = renderOfficials("title");
     }
 
+    // Priority pill handlers
+    el.querySelectorAll(".priority-pill").forEach(pill => {
+      pill.addEventListener("click", () => {
+        const val = pill.dataset.priority;
+        const input = el.querySelector("#o-priority");
+        const current = input.value;
+        // Toggle: if already selected, deselect
+        const newVal = current === val ? "" : val;
+        input.value = newVal;
+        // Update all pill styles
+        el.querySelectorAll(".priority-pill").forEach(p => {
+          const pv = p.dataset.priority;
+          const c = PRIORITY_COLORS[pv];
+          const active = pv === newVal;
+          p.style.background = active ? c.bg : "rgba(255,255,255,0.06)";
+          p.style.color = active ? c.text : "var(--text-dim)";
+          p.style.borderColor = active ? c.border : "transparent";
+        });
+      });
+    });
+
     // Sort button handlers
     const sortNameBtn = el.querySelector("#sort-name");
     const sortTitleBtn = el.querySelector("#sort-title");
@@ -216,18 +263,21 @@ export async function renderJurisdictionDetail(el, id) {
       const body = {};
       const status = el.querySelector("#o-status").value;
       const rm = el.querySelector("#o-rm").value.trim();
-      const tier = el.querySelector("#o-tier").value;
-      const board = el.querySelector("#o-board").value;
+      const priority = el.querySelector("#o-priority").value;
+      const actionDate = el.querySelector("#o-action-date").value;
+      const actionType = el.querySelector("#o-action-type").value;
       const notes = el.querySelector("#o-notes").value.trim();
 
       body.status = status;
-      if (rm) body.assigned_rm = rm; else body.assigned_rm = null;
-      if (tier) body.priority_tier = parseInt(tier); else body.priority_tier = null;
-      if (board) body.board_meeting_target = board; else body.board_meeting_target = null;
-      if (notes) body.notes = notes; else body.notes = null;
+      body.assigned_rm = rm || null;
+      body.priority = priority || null;
+      body.next_action_date = actionDate || null;
+      body.next_action_type = actionType || null;
+      body.notes = notes || null;
 
       await api(`/outreach/${id}`, { method: "PUT", body });
       showToast("Outreach saved");
+      renderJurisdictionDetail(el, id);
     });
 
     // Log interaction button

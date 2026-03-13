@@ -31,13 +31,13 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
     # Upcoming board meeting targets (next 30 days)
     result = await db.execute(text("""
         SELECT os.jurisdiction_id, j.name as jurisdiction_name,
-               os.board_meeting_target, os.status, os.assigned_rm, os.notes
+               os.next_action_date, os.next_action_type, os.status, os.assigned_rm, os.notes
         FROM ces.outreach_status os
         JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id
-        WHERE os.board_meeting_target BETWEEN :today AND :end
-        ORDER BY os.board_meeting_target
+        WHERE os.next_action_date BETWEEN :today AND :end
+        ORDER BY os.next_action_date
     """), {"today": today, "end": today + timedelta(days=30)})
-    board_targets = [dict(r) for r in result.mappings().all()]
+    actions = [dict(r) for r in result.mappings().all()]
 
     # Pipeline summary
     result = await db.execute(text("""
@@ -65,7 +65,7 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
     return MorningBrief(
         today=today,
         pending_followups=pending,
-        upcoming_board_targets=board_targets,
+        upcoming_actions=actions,
         pipeline_summary=pipeline,
         recent_interactions=recent,
     )
