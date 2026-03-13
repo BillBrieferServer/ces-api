@@ -1,4 +1,5 @@
 import { renderSearch } from "./views/search.js";
+import { renderCalendar } from "./views/calendar.js";
 import { renderBrief } from "./views/brief.js";
 import { renderJurisdictions } from "./views/jurisdictions.js";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js";
@@ -84,6 +85,11 @@ function render(view, params) {
       headerTitle.textContent = "Vendors";
       backBtn.classList.add("hidden");
       renderVendors(content);
+      break;
+    case "calendar":
+      headerTitle.textContent = "Events Calendar";
+      backBtn.classList.add("hidden");
+      renderCalendar(content);
       break;
     case "map":
       headerTitle.textContent = "Map";
