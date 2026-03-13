@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from typing import Optional, List
 
 from database import get_db
