@@ -210,9 +210,51 @@ export async function renderCalendar(el) {
     </div>`;
   }
 
+  let editingEvent = false;
+
   function renderEventModal(e) {
     if (!e) return "";
     const d = parseD(e.event_date);
+
+    if (editingEvent) {
+      return `<div class="cal-modal-overlay" id="cal-modal-overlay">
+        <div class="cal-modal">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+            <span style="font-size:16px;font-weight:700;color:var(--text)">Edit Event</span>
+            <button id="cal-modal-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px">&times;</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:2px">Title</label>
+              <input id="edit-evt-title" class="cal-input" value="${e.title}" />
+            </div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1">
+                <label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:2px">Date</label>
+                <input id="edit-evt-date" type="date" class="cal-input" value="${e.event_date}" />
+              </div>
+              <div style="flex:1">
+                <label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:2px">End date</label>
+                <input id="edit-evt-end" type="date" class="cal-input" value="${e.end_date || ''}" />
+              </div>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:2px">Location</label>
+              <input id="edit-evt-location" class="cal-input" value="${e.location || ''}" placeholder="City or venue" />
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:2px">Description</label>
+              <textarea id="edit-evt-desc" class="cal-input" rows="2" style="resize:vertical">${e.description || ''}</textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="cal-primary-btn" id="edit-evt-save">Save</button>
+            <button class="cal-secondary-btn" id="edit-evt-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
     return `<div class="cal-modal-overlay" id="cal-modal-overlay">
       <div class="cal-modal">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
@@ -220,7 +262,10 @@ export async function renderCalendar(el) {
             <div style="font-size:16px;font-weight:700;color:var(--text)">${e.title}</div>
             <div style="font-size:12px;color:${e.color};font-weight:600;margin-top:2px">${e.org_name || e.org}</div>
           </div>
-          <button id="cal-modal-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px">&times;</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button id="cal-modal-edit" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;font-weight:600">Edit</button>
+            <button id="cal-modal-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px">&times;</button>
+          </div>
         </div>
         <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">${fmtDate(d)}${e.end_date ? ` &ndash; ${fmtDate(parseD(e.end_date))}` : ""}</div>
         ${e.location ? `<div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">${e.location}</div>` : ""}
@@ -344,10 +389,56 @@ export async function renderCalendar(el) {
   function bindModal() {
     const overlay = el.querySelector("#cal-modal-overlay");
     const close = el.querySelector("#cal-modal-close");
-    if (close) close.addEventListener("click", () => { selectedEvent = null; overlay.remove(); });
+    if (close) close.addEventListener("click", () => { editingEvent = false; selectedEvent = null; overlay.remove(); });
     if (overlay) overlay.addEventListener("click", (ev) => {
-      if (ev.target === overlay) { selectedEvent = null; overlay.remove(); }
+      if (ev.target === overlay) { editingEvent = false; selectedEvent = null; overlay.remove(); }
     });
+
+    // Edit button
+    const editBtn = el.querySelector("#cal-modal-edit");
+    if (editBtn) editBtn.addEventListener("click", () => {
+      editingEvent = true;
+      const modal = el.querySelector("#cal-modal");
+      if (modal) { modal.innerHTML = renderEventModal(selectedEvent); bindModal(); }
+    });
+
+    // Edit save
+    const saveBtn = el.querySelector("#edit-evt-save");
+    if (saveBtn) saveBtn.addEventListener("click", async () => {
+      const title = el.querySelector("#edit-evt-title").value.trim();
+      const event_date = el.querySelector("#edit-evt-date").value;
+      const end_date = el.querySelector("#edit-evt-end").value;
+      const location = el.querySelector("#edit-evt-location").value.trim();
+      const description = el.querySelector("#edit-evt-desc").value.trim();
+      if (!title || !event_date) return;
+      const params = new URLSearchParams();
+      params.set("title", title);
+      params.set("event_date", event_date);
+      params.set("end_date", end_date);
+      params.set("location", location);
+      params.set("description", description);
+      await api(`/calendar/events/${selectedEvent.id}?${params}`, { method: "PATCH" });
+      selectedEvent.title = title;
+      selectedEvent.event_date = event_date;
+      selectedEvent.end_date = end_date || null;
+      selectedEvent.location = location || null;
+      selectedEvent.description = description || null;
+      // Update in events array too
+      const idx = events.findIndex(e => e.id === selectedEvent.id);
+      if (idx >= 0) events[idx] = { ...events[idx], ...selectedEvent };
+      editingEvent = false;
+      draw();
+    });
+
+    // Edit cancel
+    const cancelBtn = el.querySelector("#edit-evt-cancel");
+    if (cancelBtn) cancelBtn.addEventListener("click", () => {
+      editingEvent = false;
+      const modal = el.querySelector("#cal-modal");
+      if (modal) { modal.innerHTML = renderEventModal(selectedEvent); bindModal(); }
+    });
+
+    // Schedule button
     const schedBtn = el.querySelector("#cal-modal-sched");
     if (schedBtn) schedBtn.addEventListener("click", async () => {
       const eid = parseInt(schedBtn.dataset.sid);

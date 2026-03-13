@@ -209,6 +209,53 @@ async def get_schedule(
     ]
 
 
+
+@router.patch("/calendar/events/{event_id}")
+async def update_event(
+    event_id: int,
+    title: Optional[str] = None,
+    event_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    location: Optional[str] = None,
+    description: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a calendar event."""
+    result = await db.execute(
+        text("SELECT id FROM events WHERE id = :id"),
+        {"id": event_id},
+    )
+    if not result.first():
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    set_parts = []
+    params = {"id": event_id}
+
+    if title is not None:
+        set_parts.append("title = :title")
+        params["title"] = title
+    if event_date is not None:
+        set_parts.append("event_date = :event_date")
+        params["event_date"] = event_date
+    if end_date is not None:
+        set_parts.append("end_date = :end_date")
+        params["end_date"] = end_date if end_date else None
+    if location is not None:
+        set_parts.append("location = :location")
+        params["location"] = location if location else None
+    if description is not None:
+        set_parts.append("description = :description")
+        params["description"] = description if description else None
+
+    if not set_parts:
+        return {"ok": True}
+
+    sql = "UPDATE events SET " + ", ".join(set_parts) + " WHERE id = :id"
+    await db.execute(text(sql), params)
+    await db.commit()
+    return {"ok": True}
+
+
 @router.post("/calendar/schedule")
 async def add_to_schedule(event_id: int = Query(...), db: AsyncSession = Depends(get_db)):
     existing = await db.execute(
@@ -271,6 +318,7 @@ async def update_schedule_item(
     completed: Optional[bool] = None,
     title: Optional[str] = None,
     item_date: Optional[str] = None,
+    notes: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Update a schedule item. When marking complete, clears entity next_action fields."""
@@ -297,6 +345,10 @@ async def update_schedule_item(
     if item_date is not None:
         set_parts.append("item_date = :item_date")
         params["item_date"] = item_date
+
+    if notes is not None:
+        set_parts.append("notes = :notes")
+        params["notes"] = notes if notes else None
 
     set_clause = ", ".join(set_parts)
     sql = "UPDATE schedule_items SET " + set_clause + " WHERE id = :id"

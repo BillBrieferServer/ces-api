@@ -27,6 +27,7 @@ export async function renderSchedule(el) {
   let schedFilter = null;
   let showCompleted = false;
   let stats = {};
+  let editingItem = null;
 
   async function loadSchedule() {
     try {
@@ -106,22 +107,48 @@ export async function renderSchedule(el) {
         }
         const badge = SCHED_BADGE[item.item_type] || SCHED_BADGE.custom;
         const overdue = item.overdue;
-        html += `<div class="card" style="padding:10px 14px;${overdue ? 'border-left:3px solid #DC2626;' : ''}${item.completed ? 'opacity:0.5;' : ''}">
-          <div style="display:flex;align-items:center;gap:10px">
-            <input type="checkbox" class="sched-check" data-sid="${item.id}" ${item.completed ? "checked" : ""} style="width:18px;height:18px;cursor:pointer;accent-color:${badge.color}">
-            <div style="flex:1;min-width:0">
-              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${badge.bg};color:${badge.color}">${badge.label}</span>
-                ${item.org_abbrev ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:${item.org_color || '#475569'}22;color:${item.org_color || '#475569'}">${item.org_abbrev}</span>` : ""}
-                <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
+        if (editingItem === item.id) {
+          html += `<div class="card" style="padding:10px 14px;border:1px solid var(--primary)">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;gap:8px">
+                <div style="flex:1">
+                  <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Title</label>
+                  <input id="sched-edit-title" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.title}" />
+                </div>
+                <div style="flex:0 0 130px">
+                  <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Date</label>
+                  <input id="sched-edit-date" type="date" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.item_date}" />
+                </div>
               </div>
-              ${item.location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.location}</div>` : ""}
-              ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="sched-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
-              ${item.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${item.notes}</div>` : ""}
+              <div>
+                <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Notes</label>
+                <input id="sched-edit-notes" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.notes || ''}" placeholder="Notes..." />
+              </div>
+              <div style="display:flex;gap:6px;justify-content:flex-end">
+                <button class="btn btn-primary btn-sm sched-edit-save" data-sid="${item.id}" style="padding:4px 12px;font-size:11px;min-height:0">Save</button>
+                <button class="btn btn-sm sched-edit-cancel" style="padding:4px 12px;font-size:11px;min-height:0;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border)">Cancel</button>
+              </div>
             </div>
-            <button class="sched-del" data-sid="${item.id}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:4px" title="Remove">&times;</button>
-          </div>
-        </div>`;
+          </div>`;
+        } else {
+          html += `<div class="card" style="padding:10px 14px;${overdue ? 'border-left:3px solid #DC2626;' : ''}${item.completed ? 'opacity:0.5;' : ''}">
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="checkbox" class="sched-check" data-sid="${item.id}" ${item.completed ? "checked" : ""} style="width:18px;height:18px;cursor:pointer;accent-color:${badge.color}">
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${badge.bg};color:${badge.color}">${badge.label}</span>
+                  ${item.org_abbrev ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:${item.org_color || '#475569'}22;color:${item.org_color || '#475569'}">${item.org_abbrev}</span>` : ""}
+                  <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
+                </div>
+                ${item.location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.location}</div>` : ""}
+                ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="sched-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
+                ${item.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${item.notes}</div>` : ""}
+              </div>
+              <button class="sched-edit-btn" data-sid="${item.id}" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:11px;padding:4px;font-weight:600" title="Edit">Edit</button>
+              <button class="sched-del" data-sid="${item.id}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:4px" title="Remove">&times;</button>
+            </div>
+          </div>`;
+        }
       }
     }
 
@@ -181,6 +208,42 @@ export async function renderSchedule(el) {
         const sid = btn.dataset.sid;
         await api(`/calendar/schedule/${sid}`, { method: "DELETE" });
         await Promise.all([loadSchedule(), loadStats()]);
+        render();
+      });
+    });
+
+    // Edit buttons
+    el.querySelectorAll(".sched-edit-btn").forEach(btn => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        editingItem = parseInt(btn.dataset.sid);
+        render();
+      });
+    });
+
+    // Edit save
+    el.querySelectorAll(".sched-edit-save").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const sid = btn.dataset.sid;
+        const title = el.querySelector("#sched-edit-title").value.trim();
+        const item_date = el.querySelector("#sched-edit-date").value;
+        const notes = el.querySelector("#sched-edit-notes").value.trim();
+        if (!title || !item_date) return;
+        const params = new URLSearchParams();
+        params.set("title", title);
+        params.set("item_date", item_date);
+        params.set("notes", notes);
+        await api(`/calendar/schedule/${sid}?${params}`, { method: "PATCH" });
+        editingItem = null;
+        await Promise.all([loadSchedule(), loadStats()]);
+        render();
+      });
+    });
+
+    // Edit cancel
+    el.querySelectorAll(".sched-edit-cancel").forEach(btn => {
+      btn.addEventListener("click", () => {
+        editingItem = null;
         render();
       });
     });
