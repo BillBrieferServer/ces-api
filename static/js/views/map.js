@@ -51,6 +51,9 @@ export async function renderMap(el) {
   // Zoom control top-right
   L.control.zoom({ position: "topright" }).addTo(mapInstance);
 
+  // Force layout recalc
+  setTimeout(() => mapInstance.invalidateSize(), 100);
+
   // Load county boundaries
   try {
     const data = await api("/geo/counties");
@@ -88,6 +91,7 @@ export async function renderMap(el) {
     }).addTo(mapInstance);
   } catch (err) {
     console.error("Failed to load counties:", err);
+    el.innerHTML = ;
   }
 
   // Locate button
