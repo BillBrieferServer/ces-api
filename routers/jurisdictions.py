@@ -101,12 +101,19 @@ async def get_jurisdiction(jurisdiction_id: int, db: AsyncSession = Depends(get_
     outreach_row = result.mappings().first()
     data["outreach"] = OutreachDetail(**dict(outreach_row)) if outreach_row else None
 
-    # Officials
+    # Officials (elected)
     result = await db.execute(text("""
         SELECT official_id, name, title, phone, email
-        FROM public.officials WHERE jurisdiction_id = :jid ORDER BY title, name
+        FROM public.officials WHERE jurisdiction_id = :jid AND role_type = 'elected' ORDER BY title, name
     """), {"jid": jurisdiction_id})
     data["officials"] = [OfficialSummary(**dict(r)) for r in result.mappings().all()]
+
+    # Key Staff
+    result = await db.execute(text("""
+        SELECT official_id, name, title, phone, email
+        FROM public.officials WHERE jurisdiction_id = :jid AND role_type = 'staff' ORDER BY title, name
+    """), {"jid": jurisdiction_id})
+    data["staff"] = [OfficialSummary(**dict(r)) for r in result.mappings().all()]
 
     # Interactions
     result = await db.execute(text("""

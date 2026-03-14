@@ -47,7 +47,8 @@ export async function renderJurisdictionDetail(el, id) {
     if (p.office_phone) html += `<div class="card-row"><label>Phone</label>${phoneLink(p.office_phone)}</div>`;
     if (p.office_fax) html += `<div class="card-row"><label>Fax</label><span>${p.office_fax}</span></div>`;
     if (p.office_hours) html += `<div class="card-row"><label>Hours</label><span style="text-align:right;max-width:60%">${p.office_hours}</span></div>`;
-    if (p.mailing_address) html += `<div class="card-row"><label>Address</label><span style="text-align:right;max-width:60%">${p.mailing_address}</span></div>`;
+    if (p.physical_address) html += `<div class="card-row"><label>Courthouse</label><span style="text-align:right;max-width:60%">${p.physical_address}</span></div>`;
+    if (p.mailing_address) html += `<div class="card-row"><label>Mailing Address</label><span style="text-align:right;max-width:60%">${p.mailing_address}</span></div>`;
     if (j.website_url) html += `<div class="card-row"><label>Website</label><a class="contact-link" href="${j.website_url}" target="_blank">Visit</a></div>`;
     html += `</div>`;
 
@@ -142,6 +143,25 @@ export async function renderJurisdictionDetail(el, id) {
         });
       }
       return listHtml;
+    }
+
+    // Key Staff section
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
+      <span class="section-header" style="margin:0">Key Staff (${j.staff.length})</span>
+    </div>`;
+    if (j.staff.length === 0) {
+      html += `<div class="card"><div class="empty">No key staff on file</div></div>`;
+    } else {
+      j.staff.forEach(s => {
+        html += `<div class="card" style="padding:12px 16px">
+          <div style="font-weight:600;font-size:0.95rem">${s.name}</div>
+          <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${s.title || ""}</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
+            ${s.phone ? phoneLink(s.phone) : ""}
+            ${s.email ? emailLink(s.email) : ""}
+          </div>
+        </div>`;
+      });
     }
 
     // Interactions

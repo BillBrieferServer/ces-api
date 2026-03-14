@@ -75,6 +75,7 @@ class JurisdictionDetail(BaseModel):
     profile: Optional[ProfileDetail] = None
     outreach: Optional[OutreachDetail] = None
     officials: list[OfficialSummary] = []
+    staff: list[OfficialSummary] = []
     interactions: list[InteractionSummary] = []
     vendors: list[VendorSummary] = []
 
