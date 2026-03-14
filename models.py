@@ -1,8 +1,6 @@
 from pydantic import BaseModel
 from datetime import date, datetime
 from typing import Optional, Literal
-
-
 # ── Jurisdiction ──
 
 class JurisdictionListItem(BaseModel):
@@ -15,8 +13,6 @@ class JurisdictionListItem(BaseModel):
     aic_district: Optional[int] = None
     status: Optional[str] = None
     assigned_rm: Optional[str] = None
-
-
 class OfficialSummary(BaseModel):
     official_id: int
     name: str
@@ -24,8 +20,6 @@ class OfficialSummary(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     notes: Optional[str] = None
-
-
 class InteractionSummary(BaseModel):
     interaction_id: int
     interaction_date: Optional[datetime] = None
@@ -34,15 +28,11 @@ class InteractionSummary(BaseModel):
     official_name: Optional[str] = None
     follow_up_date: Optional[date] = None
     completed: bool = False
-
-
 class VendorSummary(BaseModel):
     vendor_id: int
     vendor_name: Optional[str] = None
     relationship_type: Optional[str] = None
     annual_spend: Optional[float] = None
-
-
 class ProfileDetail(BaseModel):
     population: Optional[int] = None
     employee_count: Optional[int] = None
@@ -53,10 +43,6 @@ class ProfileDetail(BaseModel):
     office_hours: Optional[str] = None
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
-
-
-
-
 class ProfileUpdate(BaseModel):
     population: Optional[int] = None
     employee_count: Optional[int] = None
@@ -79,8 +65,6 @@ class OutreachDetail(BaseModel):
     board_approval_date: Optional[date] = None
     ces_member_since: Optional[date] = None
     notes: Optional[str] = None
-
-
 class JurisdictionDetail(BaseModel):
     jurisdiction_id: int
     name: str
@@ -93,8 +77,6 @@ class JurisdictionDetail(BaseModel):
     staff: list[OfficialSummary] = []
     interactions: list[InteractionSummary] = []
     vendors: list[VendorSummary] = []
-
-
 # ── Officials ──
 
 class OfficialListItem(BaseModel):
@@ -105,8 +87,6 @@ class OfficialListItem(BaseModel):
     email: Optional[str] = None
     jurisdiction_name: Optional[str] = None
     jurisdiction_type: Optional[str] = None
-
-
 class OfficialDetail(OfficialListItem):
     fax: Optional[str] = None
     mailing_address: Optional[str] = None
@@ -114,8 +94,6 @@ class OfficialDetail(OfficialListItem):
     source: Optional[str] = None
     source_year: Optional[int] = None
     interactions: list[InteractionSummary] = []
-
-
 # ── Outreach ──
 
 class OutreachUpdate(BaseModel):
@@ -128,8 +106,6 @@ class OutreachUpdate(BaseModel):
     board_approval_date: Optional[date] = None
     ces_member_since: Optional[date] = None
     notes: Optional[str] = None
-
-
 # ── Interactions ──
 
 class InteractionCreate(BaseModel):
@@ -140,8 +116,6 @@ class InteractionCreate(BaseModel):
     summary: str
     follow_up_date: Optional[date] = None
     follow_up_note: Optional[str] = None
-
-
 class InteractionListItem(BaseModel):
     interaction_id: int
     jurisdiction_id: int
@@ -154,8 +128,6 @@ class InteractionListItem(BaseModel):
     follow_up_date: Optional[date] = None
     follow_up_note: Optional[str] = None
     completed: bool = False
-
-
 # ── Vendors ──
 
 class VendorCreate(BaseModel):
@@ -168,8 +140,6 @@ class VendorCreate(BaseModel):
     bluebook_status: Optional[str] = "not_listed"
     ces_contract_category: Optional[str] = None
     source: Optional[str] = None
-
-
 class VendorListItem(BaseModel):
     vendor_id: int
     vendor_name: str
@@ -177,30 +147,22 @@ class VendorListItem(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     bluebook_status: Optional[str] = None
-
-
 class VendorDetail(VendorListItem):
     website: Optional[str] = None
     address: Optional[str] = None
     ces_contract_category: Optional[str] = None
     source: Optional[str] = None
     created_date: Optional[datetime] = None
-
-
 class VendorJurisdictionCreate(BaseModel):
     jurisdiction_id: int
     relationship_type: Optional[str] = "current_vendor"
     annual_spend: Optional[float] = None
     source: Optional[str] = None
-
-
 # ── Morning Brief ──
 
 class PipelineCount(BaseModel):
     status: str
     count: int
-
-
 class MorningBrief(BaseModel):
     today: date
     schedule_overdue: list[dict] = []
@@ -209,8 +171,6 @@ class MorningBrief(BaseModel):
     upcoming_actions: list[dict] = []
     pipeline_summary: list[PipelineCount] = []
     recent_interactions: list[InteractionListItem] = []
-
-
 # ── Official Create/Update ──
 
 class OfficialCreate(BaseModel):
@@ -223,8 +183,6 @@ class OfficialCreate(BaseModel):
     physical_address: Optional[str] = None
     role_type: Optional[str] = "elected"
     notes: Optional[str] = None
-
-
 class OfficialUpdateRequest(BaseModel):
     name: Optional[str] = None
     title: Optional[str] = None
@@ -233,8 +191,6 @@ class OfficialUpdateRequest(BaseModel):
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
     notes: Optional[str] = None
-
-
 class OfficialResponse(BaseModel):
     official_id: int
     jurisdiction_id: Optional[int] = None
