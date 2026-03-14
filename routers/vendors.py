@@ -111,6 +111,16 @@ async def update_vendor(vendor_id: int, update: VendorCreate, db: AsyncSession =
     return {"ok": True}
 
 
+@router.delete("/{vendor_id}")
+async def delete_vendor(vendor_id: int, db: AsyncSession = Depends(get_db)):
+    await db.execute(text("DELETE FROM ces.vendor_jurisdictions WHERE vendor_id = :id"), {"id": vendor_id})
+    result = await db.execute(text("DELETE FROM ces.vendors WHERE vendor_id = :id RETURNING vendor_id"), {"id": vendor_id})
+    if not result.first():
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    await db.commit()
+    return {"ok": True}
+
+
 @router.post("/{vendor_id}/jurisdictions", status_code=201)
 async def link_vendor_jurisdiction(
     vendor_id: int,

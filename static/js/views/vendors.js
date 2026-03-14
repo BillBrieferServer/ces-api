@@ -163,13 +163,24 @@ async function showVendorDetailModal(vendorId, reload) {
       ${v.jurisdictions ? `<div style="font-size:0.85rem;color:var(--text-dim);margin:8px 0;padding:8px 12px;background:var(--card-bg);border-radius:8px">
         <strong>Entities:</strong> ${v.jurisdictions}${v.total_spend ? ` &mdash; $${Number(v.total_spend).toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 0})} total spend` : ""}
       </div>` : ""}
-      <button class="btn btn-primary btn-block" id="vd-save">Save Changes</button>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-primary" style="flex:1" id="vd-save">Save Changes</button>
+        <button class="btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" id="vd-delete">Delete</button>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
 
   overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#vd-delete").addEventListener("click", async () => {
+    if (!confirm("Delete this vendor? This cannot be undone.")) return;
+    await api(, { method: "DELETE" });
+    overlay.remove();
+    showToast("Vendor deleted");
+    reload();
+  });
 
   overlay.querySelector("#vd-save").addEventListener("click", async () => {
     const body = {
