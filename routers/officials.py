@@ -83,9 +83,9 @@ async def get_official(official_id: int, db: AsyncSession = Depends(get_db)):
 async def create_official(data: OfficialCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(text("""
         INSERT INTO public.officials (jurisdiction_id, name, title, phone, email,
-                                      mailing_address, physical_address, role_type, source, source_date)
+                                      mailing_address, physical_address, role_type, notes, source, source_date)
         VALUES (:jurisdiction_id, :name, :title, :phone, :email,
-                :mailing_address, :physical_address, :role_type, 'CES Field Update', CURRENT_DATE)
+                :mailing_address, :physical_address, :role_type, :notes, 'CES Field Update', CURRENT_DATE)
         RETURNING official_id, jurisdiction_id, name, title, phone, email,
                   mailing_address, physical_address, source, source_date
     """), {
@@ -97,6 +97,7 @@ async def create_official(data: OfficialCreate, db: AsyncSession = Depends(get_d
         "mailing_address": data.mailing_address,
         "physical_address": data.physical_address,
         "role_type": data.role_type or "elected",
+        "notes": data.notes,
     })
     await db.commit()
     row = result.mappings().first()

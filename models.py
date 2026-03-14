@@ -23,6 +23,7 @@ class OfficialSummary(BaseModel):
     title: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class InteractionSummary(BaseModel):
@@ -221,6 +222,7 @@ class OfficialCreate(BaseModel):
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
     role_type: Optional[str] = "elected"
+    notes: Optional[str] = None
 
 
 class OfficialUpdateRequest(BaseModel):
@@ -230,6 +232,7 @@ class OfficialUpdateRequest(BaseModel):
     email: Optional[str] = None
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class OfficialResponse(BaseModel):
@@ -241,5 +244,6 @@ class OfficialResponse(BaseModel):
     email: Optional[str] = None
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
+    notes: Optional[str] = None
     source: Optional[str] = None
     source_date: Optional[date] = None
