@@ -170,6 +170,21 @@ def require_admin_api(request: Request) -> Optional[JSONResponse]:
         return JSONResponse({"detail": "Admin access required"}, status_code=403)
     return None
 
+# --- API CSRF Middleware ---
+class APICsrfMiddleware(BaseHTTPMiddleware):
+    """Validate X-CSRF-Token header on mutating API requests."""
+    MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        if (path.startswith("/api/") and
+            request.method in self.MUTATING_METHODS and
+            path != "/api/csrf-token"):
+            token = request.headers.get("X-CSRF-Token", "")
+            if not _validate_csrf_token(request, token):
+                return JSONResponse({"detail": "CSRF validation failed"}, status_code=403)
+        return await call_next(request)
+
 # --- Auth Middleware for API routes ---
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -193,6 +208,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 app.add_middleware(AuthMiddleware)
+app.add_middleware(APICsrfMiddleware)
 
 # --- Init ---
 @app.on_event("startup")
@@ -223,6 +239,13 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "ces-idaho"}
+
+
+# --- CSRF Token for API ---
+@app.get("/api/csrf-token")
+def get_csrf_token(request: Request):
+    """Return CSRF token for SPA to include in mutation requests."""
+    return {"token": _get_csrf_token(request)}
 
 # --- Not Authorized ---
 @app.get("/not-authorized")

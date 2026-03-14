@@ -17,12 +17,44 @@ const navBtns = document.querySelectorAll(".nav-btn");
 let currentView = "search";
 let viewStack = [];
 
+let _csrfToken = null;
+
+async function getCsrfToken() {
+  if (!_csrfToken) {
+    const res = await fetch("/api/csrf-token");
+    const data = await res.json();
+    _csrfToken = data.token;
+  }
+  return _csrfToken;
+}
+
+const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
 export async function api(path, opts = {}) {
+  const method = (opts.method || "GET").toUpperCase();
+  const headers = { "Content-Type": "application/json" };
+  if (MUTATING.has(method)) {
+    headers["X-CSRF-Token"] = await getCsrfToken();
+  }
   const res = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
+  if (res.status === 403) {
+    // CSRF token may have expired, clear and retry once
+    _csrfToken = null;
+    if (MUTATING.has(method)) {
+      headers["X-CSRF-Token"] = await getCsrfToken();
+      const retry = await fetch(`/api${path}`, {
+        headers,
+        ...opts,
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+      });
+      if (!retry.ok) throw new Error(`API error ${retry.status}`);
+      return retry.json();
+    }
+  }
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
