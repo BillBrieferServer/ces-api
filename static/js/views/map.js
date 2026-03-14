@@ -42,7 +42,7 @@ export async function renderMap(el) {
   mapInstance = L.map("map", {
     zoomControl: false,
     attributionControl: false,
-  }).setView([44.6, -114.6], 6.5);
+  }).setView([44.6, -114.6], 6.4);
 
   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
     maxZoom: 18,
