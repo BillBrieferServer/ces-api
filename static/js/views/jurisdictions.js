@@ -1,11 +1,20 @@
 import { api, navigate, badge } from "../app.js";
 
 
+function titleCase(s) {
+  const small = new Set(["of","and","the","in","at","by","for","to","no","or","a"]);
+  return s.toLowerCase().replace(/\w+/g, (w, i) => {
+    if (i > 0 && small.has(w)) return w;
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  });
+}
+
 function displayName(name, type) {
-  if (type === "city" && name.startsWith("City of ")) {
-    return name.slice(8) + ", City of";
+  const tc = titleCase(name);
+  if (type === "city" && tc.startsWith("City of ")) {
+    return tc.slice(8) + ", City of";
   }
-  return name;
+  return tc;
 }
 
 function sortKey(name, type) {
