@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from routers import jurisdictions, officials, outreach, interactions, vendors, brief, search, geo, calendar
+from routers import jurisdictions, officials, outreach, interactions, vendors, brief, search, geo, calendar, reports
 from auth import (
     get_user_by_email,
     auth_router, set_templates as set_auth_templates, init_auth_db,
@@ -199,6 +199,7 @@ app.include_router(brief.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(geo.router, prefix="/api")
 app.include_router(calendar.router, prefix="/api")
+app.include_router(reports.router, prefix="/api")
 
 # --- Static Files ---
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
