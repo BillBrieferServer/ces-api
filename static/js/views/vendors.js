@@ -176,7 +176,7 @@ async function showVendorDetailModal(vendorId, reload) {
 
   overlay.querySelector("#vd-delete").addEventListener("click", async () => {
     if (!confirm("Delete this vendor? This cannot be undone.")) return;
-    await api(, { method: "DELETE" });
+    await api(`/vendors/${vendorId}`, { method: "DELETE" });
     overlay.remove();
     showToast("Vendor deleted");
     reload();
