@@ -111,8 +111,8 @@ export async function renderCalendar(el) {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
         <span style="font-size:11px;color:var(--text-muted)">${rel(d)}${multiDay}</span>
         ${e.scheduled
-          ? `<span style="font-size:11px;color:var(--green,#059669);font-weight:600">&#10003; Scheduled</span>`
-          : `<button class="cal-sched-btn" data-sid="${e.id}">+ Schedule</button>`}
+          ? `<span style="font-size:11px;color:var(--green,#059669);font-weight:600">&#10003; Scheduled</span><button class="cal-unsched-btn" data-uid="${e.id}" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0 4px" title="Remove from schedule">&times;</button>`
+          : `<select class="cal-assign-sel" data-sid="${e.id}" style="font-size:11px;padding:2px 4px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:var(--bg-input);color:var(--text);cursor:pointer"><option value="">+ Schedule</option><option value="Steve">Steve</option><option value="Drew">Drew</option><option value="Both">Both</option></select>`}
       </div>
     </div>`;
   }
@@ -273,8 +273,8 @@ export async function renderCalendar(el) {
         ${e.url ? `<a href="${e.url}" target="_blank" rel="noopener" style="font-size:13px;color:var(--primary);text-decoration:none;display:block;margin-bottom:10px">View event page &rarr;</a>` : ""}
         <div style="display:flex;gap:8px">
           ${e.scheduled
-            ? `<span style="font-size:13px;color:var(--green,#059669);font-weight:600;padding:8px 0">&#10003; On your schedule</span>`
-            : `<button class="cal-primary-btn" id="cal-modal-sched" data-sid="${e.id}">+ Add to my schedule</button>`}
+            ? `<span style="font-size:13px;color:var(--green,#059669);font-weight:600;padding:8px 0">&#10003; On your schedule</span><button id="cal-modal-unsched" data-uid="${e.id}" style="font-size:13px;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:4px 10px;margin-left:8px">Remove</button>`
+            : `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;color:var(--text-secondary)">Assign:</span><select id="cal-modal-assign" style="font-size:13px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:var(--bg-input);color:var(--text)"><option value="">—</option><option value="Steve">Steve</option><option value="Drew">Drew</option><option value="Both">Both</option></select><button class="cal-primary-btn" id="cal-modal-sched" data-sid="${e.id}">+ Add to schedule</button></div>`}
         </div>
       </div>
     </div>`;
@@ -342,12 +342,16 @@ export async function renderCalendar(el) {
     if (showAddSource) bindAddSource();
 
     // Schedule buttons
-    el.querySelectorAll(".cal-sched-btn").forEach(btn => {
-      btn.addEventListener("click", async (ev) => {
+    el.querySelectorAll(".cal-assign-sel").forEach(sel => {
+      sel.addEventListener("change", async (ev) => {
         ev.stopPropagation();
-        const eid = parseInt(btn.dataset.sid);
+        const eid = parseInt(sel.dataset.sid);
+        const assigned = sel.value;
+        if (!assigned) return;
         try {
-          await api(`/calendar/schedule?event_id=${eid}`, { method: "POST" });
+          let url = `/calendar/schedule?event_id=${eid}`;
+          if (assigned) url += `&assigned_to=${encodeURIComponent(assigned)}`;
+          await api(url, { method: "POST" });
           const evt = events.find(e => e.id === eid);
           if (evt) evt.scheduled = true;
           stats.scheduled = (stats.scheduled || 0) + 1;
@@ -359,6 +363,19 @@ export async function renderCalendar(el) {
             draw();
           }
         }
+      });
+    });
+
+    // Unschedule buttons on cards
+    el.querySelectorAll(".cal-unsched-btn").forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const eid = parseInt(btn.dataset.uid);
+        await api(`/calendar/unschedule/${eid}`, { method: "DELETE" });
+        const evt = events.find(e => e.id === eid);
+        if (evt) evt.scheduled = false;
+        stats.scheduled = Math.max(0, (stats.scheduled || 0) - 1);
+        draw();
       });
     });
 
@@ -442,8 +459,12 @@ export async function renderCalendar(el) {
     const schedBtn = el.querySelector("#cal-modal-sched");
     if (schedBtn) schedBtn.addEventListener("click", async () => {
       const eid = parseInt(schedBtn.dataset.sid);
+      const assignSel = el.querySelector("#cal-modal-assign");
+      const assigned = assignSel ? assignSel.value : "";
       try {
-        await api(`/calendar/schedule?event_id=${eid}`, { method: "POST" });
+        let url = `/calendar/schedule?event_id=${eid}`;
+        if (assigned) url += `&assigned_to=${encodeURIComponent(assigned)}`;
+        await api(url, { method: "POST" });
         const evt = events.find(e => e.id === eid);
         if (evt) evt.scheduled = true;
         stats.scheduled = (stats.scheduled || 0) + 1;
@@ -456,6 +477,18 @@ export async function renderCalendar(el) {
           draw();
         }
       }
+    });
+
+    // Modal unschedule
+    const unschedBtn = el.querySelector("#cal-modal-unsched");
+    if (unschedBtn) unschedBtn.addEventListener("click", async () => {
+      const eid = parseInt(unschedBtn.dataset.uid);
+      await api(`/calendar/unschedule/${eid}`, { method: "DELETE" });
+      const evt = events.find(e => e.id === eid);
+      if (evt) evt.scheduled = false;
+      stats.scheduled = Math.max(0, (stats.scheduled || 0) - 1);
+      selectedEvent = evt;
+      draw();
     });
   }
 

@@ -258,7 +258,7 @@ async def update_event(
 
 
 @router.post("/calendar/schedule")
-async def add_to_schedule(event_id: int = Query(...), db: AsyncSession = Depends(get_db)):
+async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)):
     existing = await db.execute(
         text("SELECT id FROM schedule_items WHERE source_event_id = :eid"),
         {"eid": event_id},
@@ -276,8 +276,8 @@ async def add_to_schedule(event_id: int = Query(...), db: AsyncSession = Depends
 
     await db.execute(
         text("""
-            INSERT INTO schedule_items (title, item_date, end_date, item_type, source_event_id, notes)
-            VALUES (:title, :item_date, :end_date, 'event', :source_event_id, :notes)
+            INSERT INTO schedule_items (title, item_date, end_date, item_type, source_event_id, notes, assigned_to)
+            VALUES (:title, :item_date, :end_date, 'event', :source_event_id, :notes, :assigned_to)
         """),
         {
             "title": evt["title"],
@@ -285,6 +285,7 @@ async def add_to_schedule(event_id: int = Query(...), db: AsyncSession = Depends
             "end_date": evt["end_date"],
             "source_event_id": evt["id"],
             "notes": evt["location"] or None,
+            "assigned_to": assigned_to or None,
         },
     )
     await db.commit()
@@ -378,6 +379,14 @@ async def update_schedule_item(
             {"jid": item["entity_id"]},
         )
 
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/calendar/unschedule/{event_id}")
+async def unschedule_event(event_id: int, db: AsyncSession = Depends(get_db)):
+    """Remove schedule item linked to a calendar event."""
+    await db.execute(text("DELETE FROM schedule_items WHERE source_event_id = :eid"), {"eid": event_id})
     await db.commit()
     return {"ok": True}
 
