@@ -55,7 +55,7 @@ async def list_vendors(
         {where_clause.replace('bluebook_status', 'v.bluebook_status').replace('vendor_name', 'v.vendor_name') if where_clause else ''}
         GROUP BY v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
                  v.bluebook_status, v.ces_contract_category, v.source
-        ORDER BY v.vendor_name
+        ORDER BY COALESCE(SUM(vj.annual_spend), 0) DESC, v.vendor_name
         LIMIT 200
     """), params)
 
