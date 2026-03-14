@@ -3,10 +3,10 @@ import { api, navigate, badge } from "../app.js";
 
 function titleCase(s) {
   const small = new Set(["of","and","the","in","at","by","for","to","no","or","a"]);
-  return s.toLowerCase().replace(/\w+/g, (w, i) => {
-    if (i > 0 && small.has(w)) return w;
+  return s.toLowerCase().split(/\s+/).map((w, idx) => {
+    if (idx > 0 && small.has(w)) return w;
     return w.charAt(0).toUpperCase() + w.slice(1);
-  });
+  }).join(" ");
 }
 
 function displayName(name, type) {
