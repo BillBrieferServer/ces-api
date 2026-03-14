@@ -91,7 +91,7 @@ export async function renderMap(el) {
     }).addTo(mapInstance);
   } catch (err) {
     console.error("Failed to load counties:", err);
-    el.innerHTML = ;
+    el.innerHTML = '<div class="empty">Failed to load map</div>';
   }
 
   // Locate button
