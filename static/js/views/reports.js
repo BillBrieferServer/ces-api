@@ -34,6 +34,52 @@ function bar(value, max, color) {
   </div>`;
 }
 
+function toCSV(rows, filename) {
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const lines = [headers.join(",")];
+  rows.forEach(r => {
+    lines.push(headers.map(h => {
+      let v = r[h] == null ? "" : String(r[h]);
+      if (v.includes(",") || v.includes('"') || v.includes("\n")) v = '"' + v.replace(/"/g, '""') + '"';
+      return v;
+    }).join(","));
+  });
+  const blob = new Blob([lines.join("\n")], {type: "text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function getCSVData(d) {
+  switch (d.type) {
+    case "schedule": return d.items.map(i => ({
+      Title: i.title, Date: i.item_date, Time: i.item_time || "",
+      Type: TYPE_LABELS[i.item_type] || i.item_type,
+      Assigned: i.assigned_to || "", Location: i.event_location || "",
+      Completed: i.completed ? "Yes" : "No", Notes: i.notes || ""
+    }));
+    case "pipeline": return d.by_entity_type.map(t => ({
+      "Entity Type": fmtType(t.entity_type), Count: t.count, Prioritized: t.prioritized
+    }));
+    case "events": return d.items.map(e => ({
+      Title: e.title, Date: e.event_date, Location: e.location || "",
+      Source: e.org_abbrev, Scheduled: e.scheduled ? "Yes" : "No"
+    }));
+    case "entities": return d.by_county.map(c => ({
+      County: c.county, Total: c.total, Hot: c.hot, Warm: c.warm,
+      Cold: c.cold, Contacted: c.contacted
+    }));
+    case "activity": return d.items.map(i => ({
+      Date: i.interaction_date || "", Type: i.type || "",
+      Entity: i.jurisdiction_name || "", Summary: i.summary || ""
+    }));
+    default: return [];
+  }
+}
+
 function fmtType(t) { return ENTITY_LABELS[t] || t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()); }
 
 export async function renderReports(el) {
@@ -110,9 +156,10 @@ export async function renderReports(el) {
       </select>
     </div>`;
 
-    // Run button
-    html += `<div style="flex:0 0 auto">
+    // Run + Download buttons
+    html += `<div style="flex:0 0 auto;display:flex;gap:8px">
       <button id="rpt-run" class="btn btn-primary" style="padding:8px 20px;font-size:13px;min-height:38px">Run Report</button>
+      ${reportData ? `<button id="rpt-download" style="padding:8px 16px;font-size:13px;min-height:38px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer">&#11015; CSV</button>` : ""}
     </div>`;
 
     html += `</div></div>`;
@@ -365,6 +412,11 @@ export async function renderReports(el) {
     if (etypeEl) etypeEl.addEventListener("change", () => { selEntityType = etypeEl.value; });
     if (countyEl) countyEl.addEventListener("change", () => { selCounty = countyEl.value; });
     if (runBtn) runBtn.addEventListener("click", () => { runReport(); });
+    const dlBtn = el.querySelector("#rpt-download");
+    if (dlBtn) dlBtn.addEventListener("click", () => {
+      const rows = getCSVData(reportData);
+      if (rows.length) toCSV(rows, selReport + "_report.csv");
+    });
   }
 
   try {
