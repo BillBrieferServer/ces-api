@@ -39,7 +39,7 @@ export async function renderJurisdictionDetail(el, id) {
     `;
 
     // Profile card
-    html += `<div class="card"><div class="card-title">Profile</div>`;
+    html += `<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">Profile<button class="btn btn-sm" id="edit-profile-btn" style="padding:4px 10px;font-size:0.9rem;min-height:28px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">&#9998;</button></div>`;
     if (p.population) html += `<div class="card-row"><label>Population</label><span>${p.population.toLocaleString()}</span></div>`;
     if (p.employee_count) html += `<div class="card-row"><label>Employees</label><span>${p.employee_count}</span></div>`;
     if (p.aic_district) html += `<div class="card-row"><label>AIC District</label><span>${p.aic_district}</span></div>`;
@@ -323,6 +323,11 @@ export async function renderJurisdictionDetail(el, id) {
       showOfficialModal(el, id, null);
     });
 
+    // Edit profile button
+    el.querySelector("#edit-profile-btn").addEventListener("click", () => {
+      showProfileModal(el, id, j, p);
+    });
+
   } catch (err) {
     el.innerHTML = `<div class="empty">Failed to load: ${err.message}</div>`;
   }
@@ -462,6 +467,89 @@ function showOfficialModal(parentEl, jurisdictionId, existing) {
         showToast("Contact added");
       }
       overlay.remove();
+      renderJurisdictionDetail(parentEl, jurisdictionId);
+    } catch (err) {
+      showToast("Error: " + err.message);
+    }
+  });
+}
+
+
+function showProfileModal(parentEl, jurisdictionId, j, p) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Profile</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Population</label>
+        <input class="form-input" id="p-population" type="number" value="${p.population || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Employees</label>
+        <input class="form-input" id="p-employees" type="number" value="${p.employee_count || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">AIC District</label>
+        <input class="form-input" id="p-district" type="number" min="1" max="6" value="${p.aic_district || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Council Meeting Schedule</label>
+        <input class="form-input" id="p-meetings" value="${p.council_meeting_schedule || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-input" id="p-phone" type="tel" value="${p.office_phone || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fax</label>
+        <input class="form-input" id="p-fax" type="tel" value="${p.office_fax || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hours</label>
+        <input class="form-input" id="p-hours" value="${p.office_hours || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Courthouse / Physical Address</label>
+        <input class="form-input" id="p-physical" value="${(p.physical_address || "").replace(/"/g, '&quot;')}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mailing Address</label>
+        <input class="form-input" id="p-mailing" value="${(p.mailing_address || "").replace(/"/g, '&quot;')}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Website URL</label>
+        <input class="form-input" id="p-website" type="url" value="${j.website_url || ""}" placeholder="https://...">
+      </div>
+      <button class="btn btn-primary btn-block" id="p-submit">Save Profile</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#p-submit").addEventListener("click", async () => {
+    const body = {
+      population: parseInt(overlay.querySelector("#p-population").value) || null,
+      employee_count: parseInt(overlay.querySelector("#p-employees").value) || null,
+      aic_district: parseInt(overlay.querySelector("#p-district").value) || null,
+      council_meeting_schedule: overlay.querySelector("#p-meetings").value.trim() || null,
+      office_phone: overlay.querySelector("#p-phone").value.trim() || null,
+      office_fax: overlay.querySelector("#p-fax").value.trim() || null,
+      office_hours: overlay.querySelector("#p-hours").value.trim() || null,
+      physical_address: overlay.querySelector("#p-physical").value.trim() || null,
+      mailing_address: overlay.querySelector("#p-mailing").value.trim() || null,
+      website_url: overlay.querySelector("#p-website").value.trim() || null,
+    };
+
+    try {
+      await api(`/jurisdictions/${jurisdictionId}/profile`, { method: "PUT", body });
+      overlay.remove();
+      showToast("Profile saved");
       renderJurisdictionDetail(parentEl, jurisdictionId);
     } catch (err) {
       showToast("Error: " + err.message);

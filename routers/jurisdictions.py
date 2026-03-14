@@ -4,7 +4,7 @@ from sqlalchemy import text
 from typing import Optional
 
 from database import get_db
-from models import JurisdictionListItem, JurisdictionDetail, ProfileDetail, OutreachDetail, OfficialSummary, InteractionSummary, VendorSummary
+from models import JurisdictionListItem, JurisdictionDetail, ProfileDetail, ProfileUpdate, OutreachDetail, OfficialSummary, InteractionSummary, VendorSummary
 
 router = APIRouter(prefix="/jurisdictions", tags=["jurisdictions"])
 
@@ -136,3 +136,51 @@ async def get_jurisdiction(jurisdiction_id: int, db: AsyncSession = Depends(get_
     data["vendors"] = [VendorSummary(**dict(r)) for r in result.mappings().all()]
 
     return JurisdictionDetail(**data)
+
+
+@router.put("/{jurisdiction_id}/profile")
+async def update_profile(jurisdiction_id: int, body: ProfileUpdate, db: AsyncSession = Depends(get_db)):
+    # Check jurisdiction exists
+    result = await db.execute(text("SELECT jurisdiction_id FROM common.jurisdictions WHERE jurisdiction_id = :jid"), {"jid": jurisdiction_id})
+    if not result.first():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    # Update website_url on jurisdictions table if provided
+    if body.website_url is not None:
+        await db.execute(text("UPDATE common.jurisdictions SET website_url = :url WHERE jurisdiction_id = :jid"),
+                         {"url": body.website_url or None, "jid": jurisdiction_id})
+
+    # Upsert profile
+    profile_fields = {
+        "population": body.population,
+        "employee_count": body.employee_count,
+        "aic_district": body.aic_district,
+        "council_meeting_schedule": body.council_meeting_schedule,
+        "office_phone": body.office_phone,
+        "office_fax": body.office_fax,
+        "office_hours": body.office_hours,
+        "mailing_address": body.mailing_address,
+        "physical_address": body.physical_address,
+    }
+
+    await db.execute(text("""
+        INSERT INTO ces.jurisdiction_profile (jurisdiction_id, population, employee_count, aic_district,
+            council_meeting_schedule, office_phone, office_fax, office_hours, mailing_address, physical_address, updated_date)
+        VALUES (:jid, :population, :employee_count, :aic_district,
+            :council_meeting_schedule, :office_phone, :office_fax, :office_hours, :mailing_address, :physical_address, now())
+        ON CONFLICT (jurisdiction_id) DO UPDATE SET
+            population = EXCLUDED.population,
+            employee_count = EXCLUDED.employee_count,
+            aic_district = EXCLUDED.aic_district,
+            council_meeting_schedule = EXCLUDED.council_meeting_schedule,
+            office_phone = EXCLUDED.office_phone,
+            office_fax = EXCLUDED.office_fax,
+            office_hours = EXCLUDED.office_hours,
+            mailing_address = EXCLUDED.mailing_address,
+            physical_address = EXCLUDED.physical_address,
+            updated_date = now()
+    """), {"jid": jurisdiction_id, **profile_fields})
+
+    await db.commit()
+    return {"ok": True}

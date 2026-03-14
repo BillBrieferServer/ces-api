@@ -54,6 +54,20 @@ class ProfileDetail(BaseModel):
     physical_address: Optional[str] = None
 
 
+
+
+class ProfileUpdate(BaseModel):
+    population: Optional[int] = None
+    employee_count: Optional[int] = None
+    aic_district: Optional[int] = None
+    council_meeting_schedule: Optional[str] = None
+    office_phone: Optional[str] = None
+    office_fax: Optional[str] = None
+    office_hours: Optional[str] = None
+    mailing_address: Optional[str] = None
+    physical_address: Optional[str] = None
+    website_url: Optional[str] = None
+
 class OutreachDetail(BaseModel):
     status: Optional[str] = None
     assigned_rm: Optional[str] = None
