@@ -45,12 +45,21 @@ async def list_vendors(
     where_clause = ("WHERE " + " AND ".join(where)) if where else ""
 
     result = await db.execute(text(f"""
-        SELECT vendor_id, vendor_name, contact_name, phone, email, bluebook_status
-        FROM ces.vendors {where_clause}
-        ORDER BY vendor_name
+        SELECT v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
+               v.bluebook_status, v.ces_contract_category, v.source,
+               string_agg(DISTINCT j.name, ', ') as jurisdictions,
+               SUM(vj.annual_spend)::numeric(14,2) as total_spend
+        FROM ces.vendors v
+        LEFT JOIN ces.vendor_jurisdictions vj ON vj.vendor_id = v.vendor_id
+        LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = vj.jurisdiction_id
+        {where_clause.replace('bluebook_status', 'v.bluebook_status').replace('vendor_name', 'v.vendor_name') if where_clause else ''}
+        GROUP BY v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
+                 v.bluebook_status, v.ces_contract_category, v.source
+        ORDER BY v.vendor_name
+        LIMIT 200
     """), params)
 
-    return [VendorListItem(**dict(r)) for r in result.mappings().all()]
+    return [dict(r) for r in result.mappings().all()]
 
 
 @router.post("/{vendor_id}/jurisdictions", status_code=201)

@@ -13,6 +13,9 @@ export async function renderVendors(el) {
       </select>
       <button class="btn btn-primary btn-sm" id="add-vendor-btn">+ Add Vendor</button>
     </div>
+    <div class="filter-row">
+      <span id="v-count" style="font-size:0.8rem;color:var(--text-dim)"></span>
+    </div>
     <div id="v-list"><div class="spinner"></div></div>
   `;
 
@@ -31,17 +34,29 @@ export async function renderVendors(el) {
       return;
     }
 
-    listEl.innerHTML = data.map(v => `
+    el.querySelector("#v-count").textContent = data.length + " vendors" + (data.length >= 200 ? " (showing first 200)" : "");
+    listEl.innerHTML = data.map(v => {
+      const spend = v.total_spend ? "$" + Number(v.total_spend).toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 0}) : "";
+      return `
       <div class="card" style="padding:14px 16px">
-        <div style="font-weight:600;font-size:0.95rem;margin-bottom:2px">${v.vendor_name}</div>
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div style="font-weight:600;font-size:0.95rem;margin-bottom:2px">${v.vendor_name}</div>
+          ${spend ? `<div style="font-weight:600;font-size:0.85rem;color:var(--accent)">${spend}</div>` : ""}
+        </div>
         ${v.contact_name ? `<div style="color:var(--text-dim);font-size:0.8rem">${v.contact_name}</div>` : ""}
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
           ${v.phone ? phoneLink(v.phone) : ""}
           ${v.email ? emailLink(v.email) : ""}
         </div>
-        <div style="margin-top:6px">${badge(v.bluebook_status)}</div>
-      </div>
-    `).join("");
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+          ${badge(v.bluebook_status)}
+          ${v.ces_contract_category ? `<span class="badge" style="background:#e0e7ff;color:#3730a3">${v.ces_contract_category}</span>` : ""}
+        </div>
+        ${v.jurisdictions || v.source ? `<div style="font-size:0.75rem;color:var(--text-dim);margin-top:4px">
+          ${v.jurisdictions ? "\u{1F3DB} " + v.jurisdictions : ""}${v.jurisdictions && v.source ? " &middot; " : ""}${v.source ? "Source: " + v.source : ""}
+        </div>` : ""}
+      </div>`;
+    }).join("");
   }
 
   let debounce;
