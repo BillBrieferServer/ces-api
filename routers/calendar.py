@@ -1,12 +1,27 @@
 """CES Idaho Events Calendar - API Router"""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from datetime import date, time, timedelta
-from typing import Optional, List
+from typing import Optional, List, Literal
+from pydantic import BaseModel
 
 from database import get_db
+
+logger = logging.getLogger(__name__)
+
+
+class EventCreate(BaseModel):
+    source_id: int
+    title: str
+    event_date: str  # ISO date
+    end_date: Optional[str] = None
+    location: Optional[str] = None
+    description: Optional[str] = None
+    url: Optional[str] = None
+    ext_id: Optional[str] = None
 
 router = APIRouter(tags=["calendar"])
 
@@ -90,6 +105,7 @@ async def get_sources(db: AsyncSession = Depends(get_db)):
 
 @router.post("/calendar/sources")
 async def add_source(
+    request: Request,
     org_name: str = Query(...),
     org_abbrev: str = Query(...),
     url: str = Query(...),
@@ -97,6 +113,12 @@ async def add_source(
     parser_type: str = Query("claude_ai"),
     db: AsyncSession = Depends(get_db),
 ):
+    # Admin only
+    from main import require_admin_api
+    denied = require_admin_api(request)
+    if denied:
+        return denied
+
     result = await db.execute(
         text("""
             INSERT INTO calendar_sources (org_name, org_abbrev, url, parser_type, color)
@@ -112,10 +134,18 @@ async def add_source(
 
 
 @router.post("/calendar/events")
-async def add_events(events: List[dict] = Body(...), db: AsyncSession = Depends(get_db)):
+async def add_events(request: Request, events: List[EventCreate] = Body(...), db: AsyncSession = Depends(get_db)):
+    # Admin only
+    from main import require_admin_api
+    denied = require_admin_api(request)
+    if denied:
+        return denied
+
     added = 0
+    errors = 0
     for evt in events:
         try:
+            ext_id = evt.ext_id or evt.url or (evt.title + "-" + evt.event_date)
             await db.execute(
                 text("""
                     INSERT INTO events (source_id, title, event_date, end_date, location, description, url, ext_id)
@@ -123,21 +153,22 @@ async def add_events(events: List[dict] = Body(...), db: AsyncSession = Depends(
                     ON CONFLICT (source_id, ext_id) DO NOTHING
                 """),
                 {
-                    "source_id": evt["source_id"],
-                    "title": evt["title"],
-                    "event_date": evt["event_date"],
-                    "end_date": evt.get("end_date"),
-                    "location": evt.get("location"),
-                    "description": evt.get("description"),
-                    "url": evt.get("url"),
-                    "ext_id": evt.get("ext_id", evt.get("url", evt["title"] + "-" + evt["event_date"])),
+                    "source_id": evt.source_id,
+                    "title": evt.title,
+                    "event_date": evt.event_date,
+                    "end_date": evt.end_date,
+                    "location": evt.location,
+                    "description": evt.description,
+                    "url": evt.url,
+                    "ext_id": ext_id,
                 },
             )
             added += 1
-        except Exception:
-            pass
+        except Exception as e:
+            errors += 1
+            logger.error(f"Failed to insert event: {e}")
     await db.commit()
-    return {"added": added}
+    return {"added": added, "errors": errors}
 
 
 @router.get("/calendar/schedule")
@@ -296,7 +327,7 @@ async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str]
 async def create_custom_schedule_item(
     title: str = Query(...),
     item_date: str = Query(...),
-    item_type: str = Query("custom"),
+    item_type: Literal["entity_visit", "follow_up", "presentation", "event", "custom"] = Query("custom"),
     notes: Optional[str] = Query(None),
     assigned_to: Optional[str] = Query(None),
     item_time: Optional[str] = Query(None),

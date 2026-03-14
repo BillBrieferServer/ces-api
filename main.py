@@ -158,6 +158,18 @@ def require_admin(request: Request) -> Optional[RedirectResponse]:
         return RedirectResponse(url="/not-authorized", status_code=302)
     return None
 
+
+def require_admin_api(request: Request) -> Optional[JSONResponse]:
+    """Check admin access for API routes. Returns JSONResponse on failure, None on success."""
+    user = current_user(request)
+    if not user:
+        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    email = user.get("email", "").strip().lower()
+    admins = _load_admin_allowlist()
+    if email not in admins:
+        return JSONResponse({"detail": "Admin access required"}, status_code=403)
+    return None
+
 # --- Auth Middleware for API routes ---
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):

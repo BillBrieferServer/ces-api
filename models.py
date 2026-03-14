@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
 
 
 # ── Jurisdiction ──
@@ -60,7 +60,7 @@ class OutreachDetail(BaseModel):
     priority: Optional[str] = None
     first_contact_date: Optional[date] = None
     next_action_date: Optional[date] = None
-    next_action_type: Optional[str] = None
+    next_action_type: Optional[Literal["visit", "call", "present", "follow_up", "send_info"]] = None
     board_approval_date: Optional[date] = None
     ces_member_since: Optional[date] = None
     notes: Optional[str] = None
@@ -103,12 +103,12 @@ class OfficialDetail(OfficialListItem):
 # ── Outreach ──
 
 class OutreachUpdate(BaseModel):
-    status: Optional[str] = None
+    status: Optional[Literal["not_contacted", "contacted", "proposal", "follow_up", "member", "declined", "inactive"]] = None
     assigned_rm: Optional[str] = None
-    priority: Optional[str] = None
+    priority: Optional[Literal["hot", "warm", "cold"]] = None
     first_contact_date: Optional[date] = None
     next_action_date: Optional[date] = None
-    next_action_type: Optional[str] = None
+    next_action_type: Optional[Literal["visit", "call", "present", "follow_up", "send_info"]] = None
     board_approval_date: Optional[date] = None
     ces_member_since: Optional[date] = None
     notes: Optional[str] = None
