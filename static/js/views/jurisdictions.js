@@ -23,31 +23,31 @@ export async function renderJurisdictions(el) {
     <div class="filter-row">
       <select class="filter-select" id="j-type" style="flex:2">
         <option value="">All Types</option>
+        <option value="airport_authority">Airport Authority</option>
+        <option value="alternative_school">Alternative Schools</option>
+        <option value="cemetery_district">Cemetery Districts</option>
         <option value="city">Cities</option>
         <option value="county">Counties</option>
-        <option value="school_district">School Districts</option>
+        <option value="drainage_district">Drainage Districts</option>
         <option value="fire_district">Fire Districts</option>
+        <option value="flood_control_district">Flood Control Districts</option>
+        <option value="health_district">Health Districts</option>
         <option value="highway_district">Highway Districts</option>
-        <option value="cemetery_district">Cemetery Districts</option>
+        <option value="hospital_district">Hospital Districts</option>
+        <option value="housing_authority">Housing Authorities</option>
         <option value="irrigation_district">Irrigation Districts</option>
         <option value="library_district">Library Districts</option>
-        <option value="soil_water_district">Soil/Water Conservation</option>
+        <option value="natural_resource_district">Natural Resource Districts</option>
+        <option value="special_district">Other Special Districts</option>
+        <option value="port_authority">Port Authority</option>
         <option value="recreation_district">Recreation Districts</option>
-        <option value="water_district">Water Districts</option>
-        <option value="drainage_district">Drainage Districts</option>
+        <option value="school_district">School Districts</option>
         <option value="sewer_district">Sewer Districts</option>
         <option value="sewer_water_district">Sewer/Water Districts</option>
-        <option value="flood_control_district">Flood Control Districts</option>
-        <option value="housing_authority">Housing Authorities</option>
-        <option value="hospital_district">Hospital Districts</option>
-        <option value="health_district">Health Districts</option>
-        <option value="natural_resource_district">Natural Resource Districts</option>
+        <option value="soil_water_district">Soil/Water Conservation</option>
         <option value="solid_waste_district">Solid Waste Districts</option>
-        <option value="special_district">Other Special Districts</option>
-        <option value="alternative_school">Alternative Schools</option>
-        <option value="airport_authority">Airport Authority</option>
         <option value="transit_authority">Transit Authority</option>
-        <option value="port_authority">Port Authority</option>
+        <option value="water_district">Water Districts</option>
       </select>
       <select class="filter-select" id="j-district">
         <option value="">All Districts</option>
