@@ -96,7 +96,7 @@ function render(view, params) {
       renderSearch(content);
       break;
     case "brief":
-      headerTitle.textContent = "Morning Brief";
+      headerTitle.textContent = "CES Morning Brief";
       backBtn.classList.add("hidden");
       renderBrief(content);
       break;
