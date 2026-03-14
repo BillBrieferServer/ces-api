@@ -103,7 +103,7 @@ export async function renderJurisdictionDetail(el, id) {
 
     // Officials
     html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
-      <span class="section-header" style="margin:0">Key Personnel (${j.officials.length})</span>
+      <span class="section-header" style="margin:0">Elected Officials (${j.officials.length})</span>
       <button class="btn btn-primary btn-sm" id="add-official-btn">+ Add Contact</button>
     </div>`;
     if (j.officials.length > 1) {
