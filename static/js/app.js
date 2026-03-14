@@ -1,4 +1,4 @@
-import { renderSearch } from "./views/search.js";
+import { renderSearch } from "./views/search.js?v=1773600010";
 import { renderSchedule } from "./views/schedule.js?v=1773475000";
 import { renderReports } from "./views/reports.js?v=1773474500";
 import { renderCalendar } from "./views/calendar.js?v=1773475000";
