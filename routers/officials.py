@@ -124,7 +124,7 @@ async def update_official(official_id: int, data: OfficialUpdateRequest, db: Asy
     updates["oid"] = official_id
 
     sql = f"""
-        UPDATE common.officials
+        UPDATE public.officials
         SET {", ".join(set_parts)}
         WHERE official_id = :oid
         RETURNING official_id, jurisdiction_id, name, title, phone, email,
