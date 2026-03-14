@@ -45,17 +45,19 @@ async def list_vendors(
     where_clause = ("WHERE " + " AND ".join(where)) if where else ""
 
     result = await db.execute(text(f"""
-        SELECT v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
-               v.bluebook_status, v.ces_contract_category, v.source,
-               string_agg(DISTINCT j.name, ', ') as jurisdictions,
-               SUM(vj.annual_spend)::numeric(14,2) as total_spend
-        FROM ces.vendors v
-        LEFT JOIN ces.vendor_jurisdictions vj ON vj.vendor_id = v.vendor_id
-        LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = vj.jurisdiction_id
-        {where_clause.replace('bluebook_status', 'v.bluebook_status').replace('vendor_name', 'v.vendor_name') if where_clause else ''}
-        GROUP BY v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
-                 v.bluebook_status, v.ces_contract_category, v.source
-        ORDER BY COALESCE(SUM(vj.annual_spend), 0) DESC, v.vendor_name
+        SELECT * FROM (
+            SELECT v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
+                   v.bluebook_status, v.ces_contract_category, v.source,
+                   string_agg(DISTINCT j.name, ', ') as jurisdictions,
+                   COALESCE(SUM(vj.annual_spend), 0)::float as total_spend
+            FROM ces.vendors v
+            LEFT JOIN ces.vendor_jurisdictions vj ON vj.vendor_id = v.vendor_id
+            LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = vj.jurisdiction_id
+            {where_clause.replace('bluebook_status', 'v.bluebook_status').replace('vendor_name', 'v.vendor_name') if where_clause else ''}
+            GROUP BY v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
+                     v.bluebook_status, v.ces_contract_category, v.source
+        ) sub
+        ORDER BY total_spend DESC, vendor_name
         LIMIT 200
     """), params)
 
