@@ -49,7 +49,7 @@ export async function renderJurisdictionDetail(el, id) {
     if (p.office_hours) html += `<div class="card-row"><label>Hours</label><span style="text-align:right;max-width:60%">${p.office_hours}</span></div>`;
     if (p.physical_address) html += `<div class="card-row"><label>Courthouse</label><span style="text-align:right;max-width:60%">${p.physical_address}</span></div>`;
     if (p.mailing_address) html += `<div class="card-row"><label>Mailing Address</label><span style="text-align:right;max-width:60%">${p.mailing_address}</span></div>`;
-    if (j.website_url) html += `<div class="card-row"><label>Website</label><a class="contact-link" href="${j.website_url}" target="_blank">Visit</a></div>`;
+    if (j.website_url) html += `<div class="card-row"><label>Website</label><a class="contact-link" href="${j.website_url}" target="_blank" style="text-align:right;max-width:60%;word-break:break-all">${j.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a></div>`;
     html += `</div>`;
 
     // Outreach card

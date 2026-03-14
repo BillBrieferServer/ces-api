@@ -4,7 +4,7 @@ import { renderReports } from "./views/reports.js?v=1773474500";
 import { renderCalendar } from "./views/calendar.js?v=1773475000";
 import { renderBrief } from "./views/brief.js?v=1773474600";
 import { renderJurisdictions } from "./views/jurisdictions.js";
-import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773600000";
+import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773600001";
 import { renderOfficials } from "./views/officials.js";
 import { renderVendors } from "./views/vendors.js?v=1773530000";
 import { renderMap } from "./views/map.js";
