@@ -139,6 +139,7 @@ export async function renderJurisdictionDetail(el, id) {
               ${off.phone ? phoneLink(off.phone) : ""}
               ${off.email ? emailLink(off.email) : ""}
             </div>
+            ${off.notes ? `<div style="font-size:0.8rem;color:var(--text-dim);margin-top:6px;font-style:italic">${off.notes}</div>` : ""}
           </div>`;
         });
       }
@@ -164,6 +165,7 @@ export async function renderJurisdictionDetail(el, id) {
             ${s.phone ? phoneLink(s.phone) : ""}
             ${s.email ? emailLink(s.email) : ""}
           </div>
+          ${s.notes ? `<div style="font-size:0.8rem;color:var(--text-dim);margin-top:6px;font-style:italic">${s.notes}</div>` : ""}
         </div>`;
       });
     }
