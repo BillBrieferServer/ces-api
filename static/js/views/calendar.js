@@ -29,6 +29,7 @@ export async function renderCalendar(el) {
   let stats = {};
   let filter = null; // null = all, or org_abbrev string
   let showAddSource = false;
+  let calView = null; // null = normal, "next10", "upcoming", "scheduled", "overdue"
   let selectedEvent = null;
 
   async function loadData() {
@@ -64,10 +65,10 @@ export async function renderCalendar(el) {
 
   function renderStats() {
     return `<div class="stats-row" style="margin-bottom:12px">
-      <div class="stat-card"><div class="stat-value">${stats.next_10_days || 0}</div><div class="stat-label">Next 10 days</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.total_upcoming || 0}</div><div class="stat-label">Upcoming</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.scheduled || 0}</div><div class="stat-label">Scheduled</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.overdue || 0}</div><div class="stat-label">Overdue</div></div>
+      <div class="stat-card cal-stat-btn" data-stat="next10" style="cursor:pointer;${calView === 'next10' ? 'outline:2px solid var(--primary);' : ''}"><div class="stat-value">${stats.next_10_days || 0}</div><div class="stat-label">Next 10 days</div></div>
+      <div class="stat-card cal-stat-btn" data-stat="upcoming" style="cursor:pointer;${calView === 'upcoming' ? 'outline:2px solid var(--primary);' : ''}"><div class="stat-value">${stats.total_upcoming || 0}</div><div class="stat-label">Upcoming</div></div>
+      <div class="stat-card cal-stat-btn" data-stat="scheduled" style="cursor:pointer;${calView === 'scheduled' ? 'outline:2px solid var(--primary);' : ''}"><div class="stat-value">${stats.scheduled || 0}</div><div class="stat-label">Scheduled</div></div>
+      <div class="stat-card cal-stat-btn" data-stat="overdue" style="cursor:pointer;${calView === 'overdue' ? 'outline:2px solid var(--primary);' : ''}"><div class="stat-value">${stats.overdue || 0}</div><div class="stat-label">Overdue</div></div>
     </div>`;
   }
 
@@ -117,7 +118,34 @@ export async function renderCalendar(el) {
     </div>`;
   }
 
-  function renderRolling() {
+  function renderStatView() {
+    const today = fmt(new Date());
+    const ten = fmt(addD(new Date(), 10));
+    let filtered = getFiltered();
+
+    if (calView === "next10") {
+      filtered = filtered.filter(e => e.event_date >= today && e.event_date <= ten);
+    } else if (calView === "upcoming") {
+      filtered = filtered.filter(e => e.event_date >= today);
+    } else if (calView === "scheduled") {
+      filtered = filtered.filter(e => e.scheduled);
+    } else if (calView === "overdue") {
+      filtered = filtered.filter(e => e.event_date < today);
+    }
+
+    if (filtered.length === 0) {
+      return `<div class="card"><div class="empty" style="font-size:0.85rem">No events</div></div>`;
+    }
+
+    let html = `<div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">${filtered.length} events</span>
+      <button class="cal-nav-btn" id="cal-stat-clear" style="font-size:12px">Show all</button>
+    </div>`;
+    filtered.forEach(e => { html += renderEventCard(e); });
+    return html;
+  }
+
+    function renderRolling() {
     const filtered = getFiltered();
     let html = "";
     for (let i = 0; i < ROLLING; i++) {
@@ -284,9 +312,9 @@ export async function renderCalendar(el) {
     let html = renderStats();
     html += renderFilters();
     if (showAddSource) html += renderAddSourcePanel();
-    html += renderModeToggle();
+    if (!calView) html += renderModeToggle();
     html += `<div id="cal-body">`;
-    html += mode === "rolling" ? renderRolling() : renderMonth();
+    html += calView ? renderStatView() : (mode === "rolling" ? renderRolling() : renderMonth());
     html += `</div>`;
     html += `<div id="cal-modal"></div>`;
     el.innerHTML = html;
@@ -294,6 +322,19 @@ export async function renderCalendar(el) {
   }
 
   function bind() {
+    // Stat card clicks
+    el.querySelectorAll(".cal-stat-btn").forEach(card => {
+      card.addEventListener("click", () => {
+        const v = card.dataset.stat;
+        calView = calView === v ? null : v;
+        draw();
+      });
+    });
+
+    // Clear stat view
+    const clearBtn = el.querySelector("#cal-stat-clear");
+    if (clearBtn) clearBtn.addEventListener("click", () => { calView = null; draw(); });
+
     // Filter buttons
     el.querySelectorAll(".cal-filter-btn:not(.sched-type-filter)").forEach(btn => {
       btn.addEventListener("click", () => {
