@@ -59,11 +59,14 @@
   </nav>
 </div>
 <script>
-// Force service worker update
+// Clear all caches and unregister old service workers
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.update());
+    regs.forEach(r => r.unregister());
   });
+}
+if ('caches' in window) {
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
 }
 </script>
 <script type="module" src="/static/js/app.js?v=1773529000"></script>
