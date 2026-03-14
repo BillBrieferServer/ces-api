@@ -26,7 +26,7 @@ async def create_vendor(vendor: VendorCreate, db: AsyncSession = Depends(get_db)
                         **vendor.model_dump())
 
 
-@router.get("", response_model=list[VendorListItem])
+@router.get("")
 async def list_vendors(
     bluebook_status: Optional[str] = None,
     name: Optional[str] = None,
