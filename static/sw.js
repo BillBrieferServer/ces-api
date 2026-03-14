@@ -1,23 +1,22 @@
-const CACHE_NAME = "ces-v20";
-const SHELL = ["/", "/static/css/style.css", "/static/js/app.js", "/manifest.json"];
+const CACHE_NAME = "ces-v21";
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(SHELL)));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    Promise.all(keys.map(k => caches.delete(k)))
   ));
   self.clients.claim();
 });
 
 self.addEventListener("fetch", e => {
   if (e.request.url.includes("/api/")) return;
+  if (e.request.url.includes("/static/js/")) return;
   e.respondWith(
     fetch(e.request).then(r => {
-      if (r.ok) {
+      if (r.ok && e.request.method === "GET") {
         const clone = r.clone();
         caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
       }
