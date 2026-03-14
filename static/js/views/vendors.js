@@ -11,6 +11,12 @@ export async function renderVendors(el) {
         <option value="onboarded">Onboarded</option>
         <option value="active">Active</option>
       </select>
+      <select class="filter-select" id="v-sort">
+        <option value="spend">Sort: $ Amount</option>
+        <option value="name">Sort: Name</option>
+        <option value="category">Sort: Category</option>
+        <option value="entity">Sort: Entity</option>
+      </select>
       <button class="btn btn-primary btn-sm" id="add-vendor-btn">+ Add Vendor</button>
     </div>
     <div class="filter-row">
@@ -34,6 +40,16 @@ export async function renderVendors(el) {
       return;
     }
 
+    const sortBy = el.querySelector("#v-sort").value;
+    if (sortBy === "spend") {
+      data.sort((a, b) => (b.total_spend || 0) - (a.total_spend || 0));
+    } else if (sortBy === "name") {
+      data.sort((a, b) => (a.vendor_name || "").localeCompare(b.vendor_name || ""));
+    } else if (sortBy === "category") {
+      data.sort((a, b) => (a.ces_contract_category || "zzz").localeCompare(b.ces_contract_category || "zzz") || (b.total_spend || 0) - (a.total_spend || 0));
+    } else if (sortBy === "entity") {
+      data.sort((a, b) => (a.jurisdictions || "zzz").localeCompare(b.jurisdictions || "zzz") || (b.total_spend || 0) - (a.total_spend || 0));
+    }
     el.querySelector("#v-count").textContent = data.length + " vendors" + (data.length >= 200 ? " (showing first 200)" : "");
     listEl.innerHTML = data.map(v => {
       const spend = v.total_spend ? "$" + Number(v.total_spend).toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 0}) : "";
@@ -65,6 +81,7 @@ export async function renderVendors(el) {
     debounce = setTimeout(load, 300);
   });
   el.querySelector("#v-status").addEventListener("change", load);
+  el.querySelector("#v-sort").addEventListener("change", load);
 
   el.querySelector("#add-vendor-btn").addEventListener("click", () => showAddVendorModal(el, load));
 
