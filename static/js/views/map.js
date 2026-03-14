@@ -5,8 +5,8 @@ let geojsonLayer = null;
 
 export async function renderMap(el) {
   el.innerHTML = `
-    <div id="map-container" style="height:calc(100dvh - var(--header-height) - var(--nav-height) - var(--safe-bottom) + 28px);
-         margin:-12px -16px -16px -16px;border-radius:0;position:relative">
+    <div id="map-container" style="height:calc(100dvh - var(--header-height) - var(--nav-height) - var(--safe-bottom));
+         margin:-12px -16px;border-radius:0;position:relative">
       <div id="map" style="height:100%;width:100%"></div>
       <button id="locate-btn" style="position:absolute;bottom:16px;right:16px;z-index:1000;
         width:48px;height:48px;border-radius:50%;background:var(--accent);border:none;
