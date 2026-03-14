@@ -39,7 +39,7 @@ export async function renderJurisdictionDetail(el, id) {
     `;
 
     // Profile card
-    html += `<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">Profile<button class="btn btn-sm" id="edit-profile-btn" style="padding:4px 10px;font-size:0.9rem;min-height:28px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">&#9998;</button></div>`;
+    html += `<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">Profile<button class="btn btn-sm" id="edit-profile-btn" style="padding:4px 10px;font-size:0.9rem;min-height:28px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button></div>`;
     if (p.population) html += `<div class="card-row"><label>Population</label><span>${p.population.toLocaleString()}</span></div>`;
     if (p.employee_count) html += `<div class="card-row"><label>Employees</label><span>${p.employee_count}</span></div>`;
     if (p.aic_district) html += `<div class="card-row"><label>AIC District</label><span>${p.aic_district}</span></div>`;
@@ -132,7 +132,7 @@ export async function renderJurisdictionDetail(el, id) {
           listHtml += `<div class="card" style="padding:12px 16px">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div style="font-weight:600;font-size:0.95rem">${lastFirst(off.name)}</div>
-              <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" data-off-notes="${(off.notes||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">&#9998;</button>
+              <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" data-off-notes="${(off.notes||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button>
             </div>
             <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${off.title || ""}</div>
             <div style="display:flex;gap:16px;flex-wrap:wrap">
@@ -158,7 +158,7 @@ export async function renderJurisdictionDetail(el, id) {
         html += `<div class="card" style="padding:12px 16px">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div style="font-weight:600;font-size:0.95rem">${s.name}</div>
-            <button class="btn btn-sm" data-edit-staff="${s.official_id}" data-staff-name="${(s.name||'').replace(/"/g,'&quot;')}" data-staff-title="${(s.title||'').replace(/"/g,'&quot;')}" data-staff-phone="${s.phone||''}" data-staff-email="${s.email||''}" data-staff-notes="${(s.notes||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">&#9998;</button>
+            <button class="btn btn-sm" data-edit-staff="${s.official_id}" data-staff-name="${(s.name||'').replace(/"/g,'&quot;')}" data-staff-title="${(s.title||'').replace(/"/g,'&quot;')}" data-staff-phone="${s.phone||''}" data-staff-email="${s.email||''}" data-staff-notes="${(s.notes||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button>
           </div>
           <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${s.title || ""}</div>
           <div style="display:flex;gap:16px;flex-wrap:wrap">
@@ -518,6 +518,10 @@ function showProfileModal(parentEl, jurisdictionId, j, p) {
         <button class="modal-close">&times;</button>
       </div>
       <div class="form-group">
+        <label class="form-label">Entity Name</label>
+        <input class="form-input" id="p-entity-name" value="${(j.name || "").replace(/"/g, '&quot;')}">
+      </div>
+      <div class="form-group">
         <label class="form-label">Population</label>
         <input class="form-input" id="p-population" type="number" value="${p.population || ""}">
       </div>
@@ -567,6 +571,7 @@ function showProfileModal(parentEl, jurisdictionId, j, p) {
 
   overlay.querySelector("#p-submit").addEventListener("click", async () => {
     const body = {
+      entity_name: overlay.querySelector("#p-entity-name").value.trim() || null,
       population: parseInt(overlay.querySelector("#p-population").value) || null,
       employee_count: parseInt(overlay.querySelector("#p-employees").value) || null,
       aic_district: parseInt(overlay.querySelector("#p-district").value) || null,

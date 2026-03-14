@@ -44,6 +44,7 @@ class ProfileDetail(BaseModel):
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
 class ProfileUpdate(BaseModel):
+    entity_name: Optional[str] = None
     population: Optional[int] = None
     employee_count: Optional[int] = None
     aic_district: Optional[int] = None

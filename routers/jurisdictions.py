@@ -146,6 +146,11 @@ async def update_profile(jurisdiction_id: int, body: ProfileUpdate, db: AsyncSes
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Jurisdiction not found")
 
+    # Update entity_name on jurisdictions table if provided
+    if body.entity_name is not None:
+        await db.execute(text("UPDATE common.jurisdictions SET name = :name WHERE jurisdiction_id = :jid"),
+                         {"name": body.entity_name.strip(), "jid": jurisdiction_id})
+
     # Update website_url on jurisdictions table if provided
     if body.website_url is not None:
         await db.execute(text("UPDATE common.jurisdictions SET website_url = :url WHERE jurisdiction_id = :jid"),
