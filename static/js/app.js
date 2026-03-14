@@ -2,7 +2,7 @@ import { renderSearch } from "./views/search.js";
 import { renderSchedule } from "./views/schedule.js?v=1773385000";
 import { renderReports } from "./views/reports.js?v=1773474500";
 import { renderCalendar } from "./views/calendar.js?v=1773387000";
-import { renderBrief } from "./views/brief.js?v=1773474400";
+import { renderBrief } from "./views/brief.js?v=1773474600";
 import { renderJurisdictions } from "./views/jurisdictions.js";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773378207";
 import { renderOfficials } from "./views/officials.js";
