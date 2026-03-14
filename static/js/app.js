@@ -188,4 +188,4 @@ if ("serviceWorker" in navigator) {
 }
 
 // Initial render
-navigate("search", {}, false);
+navigate("brief", {}, false);
