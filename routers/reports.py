@@ -80,14 +80,14 @@ async def get_reports(db: AsyncSession = Depends(get_db)):
 
     # Outreach by county (top 20 with priority set)
     result = await db.execute(text("""
-        SELECT c.county, COUNT(*) as total,
+        SELECT c.county_name as county, COUNT(*) as total,
                COUNT(*) FILTER (WHERE os.priority = 'hot') as hot,
                COUNT(*) FILTER (WHERE os.priority = 'warm') as warm,
                COUNT(*) FILTER (WHERE os.priority = 'cold') as cold
         FROM ces.outreach_status os
         JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id
         JOIN common.counties c ON c.county_id = j.county_id
-        GROUP BY c.county ORDER BY total DESC LIMIT 20
+        GROUP BY c.county_name ORDER BY total DESC LIMIT 20
     """))
     by_county = [dict(r) for r in result.mappings().all()]
 
