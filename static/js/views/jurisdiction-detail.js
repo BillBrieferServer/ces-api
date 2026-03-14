@@ -148,13 +148,17 @@ export async function renderJurisdictionDetail(el, id) {
     // Key Staff section
     html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
       <span class="section-header" style="margin:0">Key Staff (${j.staff.length})</span>
+      <button class="btn btn-primary btn-sm" id="add-staff-btn">+ Add Staff</button>
     </div>`;
     if (j.staff.length === 0) {
       html += `<div class="card"><div class="empty">No key staff on file</div></div>`;
     } else {
       j.staff.forEach(s => {
         html += `<div class="card" style="padding:12px 16px">
-          <div style="font-weight:600;font-size:0.95rem">${s.name}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:600;font-size:0.95rem">${s.name}</div>
+            <button class="btn btn-sm" data-edit-staff="${s.official_id}" data-staff-name="${(s.name||'').replace(/"/g,'&quot;')}" data-staff-title="${(s.title||'').replace(/"/g,'&quot;')}" data-staff-phone="${s.phone||''}" data-staff-email="${s.email||''}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">&#9998;</button>
+          </div>
           <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${s.title || ""}</div>
           <div style="display:flex;gap:16px;flex-wrap:wrap">
             ${s.phone ? phoneLink(s.phone) : ""}
@@ -328,6 +332,24 @@ export async function renderJurisdictionDetail(el, id) {
       showProfileModal(el, id, j, p);
     });
 
+    // Add staff button
+    el.querySelector("#add-staff-btn").addEventListener("click", () => {
+      showOfficialModal(el, id, null, "staff");
+    });
+
+    // Edit staff buttons
+    el.querySelectorAll("[data-edit-staff]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        showOfficialModal(el, id, {
+          official_id: parseInt(btn.dataset.editStaff),
+          name: btn.dataset.staffName,
+          title: btn.dataset.staffTitle,
+          phone: btn.dataset.staffPhone,
+          email: btn.dataset.staffEmail,
+        }, "staff");
+      });
+    });
+
   } catch (err) {
     el.innerHTML = `<div class="empty">Failed to load: ${err.message}</div>`;
   }
@@ -406,14 +428,14 @@ function showInteractionModal(parentEl, jurisdictionId, officials) {
 }
 
 
-function showOfficialModal(parentEl, jurisdictionId, existing) {
+function showOfficialModal(parentEl, jurisdictionId, existing, roleType) {
   const isEdit = !!existing;
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
     <div class="modal-content">
       <div class="modal-header">
-        <h2>${isEdit ? "Edit Contact" : "Add Contact"}</h2>
+        <h2>${isEdit ? "Edit " + (roleType === "staff" ? "Staff" : "Contact") : "Add " + (roleType === "staff" ? "Staff" : "Contact")}</h2>
         <button class="modal-close">&times;</button>
       </div>
       <div class="form-group">
@@ -460,7 +482,7 @@ function showOfficialModal(parentEl, jurisdictionId, existing) {
         await api(`/officials/${existing.official_id}`, { method: "PUT", body });
         showToast("Contact updated");
       } else {
-        const body = { jurisdiction_id: parseInt(jurisdictionId), name, title };
+        const body = { jurisdiction_id: parseInt(jurisdictionId), name, title, role_type: roleType || "elected" };
         if (phone) body.phone = phone;
         if (email) body.email = email;
         await api("/officials", { method: "POST", body });

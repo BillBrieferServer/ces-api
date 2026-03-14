@@ -220,6 +220,7 @@ class OfficialCreate(BaseModel):
     email: Optional[str] = None
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
+    role_type: Optional[str] = "elected"
 
 
 class OfficialUpdateRequest(BaseModel):
