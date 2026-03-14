@@ -16,8 +16,11 @@ function schedCard(item, overdue) {
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${b.bg};color:${b.color}">${b.label}</span>
+          ${item.assigned_to ? `<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.2);color:#EAB308">${item.assigned_to}</span>` : ""}
+          ${item.item_time ? `<span style="font-size:11px;color:var(--text-muted)">${item.item_time.slice(0,5)}</span>` : ""}
           <span style="font-weight:600;font-size:13px;color:var(--text)">${item.title}</span>
         </div>
+        ${item.event_location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.event_location}</div>` : ""}
         ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="brief-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
         ${overdue ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">${formatDate(item.item_date)}</div>` : ""}
         ${!overdue && item.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${item.notes}</div>` : ""}
@@ -46,6 +49,38 @@ export async function renderBrief(el) {
       html += `<div class="card"><div class="empty" style="font-size:0.85rem">Nothing scheduled for today</div></div>`;
     } else {
       data.schedule_today.forEach(item => { html += schedCard(item, false); });
+    }
+
+    // Schedule: Upcoming (next 7 days)
+    if (data.schedule_upcoming && data.schedule_upcoming.length > 0) {
+      html += `<div class="section-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Upcoming Schedule</span>
+        <span class="brief-nav-link" data-nav="schedule" style="font-size:12px;color:var(--primary);cursor:pointer;font-weight:400">View all &rarr;</span>
+      </div>`;
+      data.schedule_upcoming.forEach(item => { html += schedCard(item, false); });
+    }
+
+    // Upcoming events from calendar
+    if (data.upcoming_events && data.upcoming_events.length > 0) {
+      html += `<div class="section-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Upcoming Events</span>
+        <span class="brief-nav-link" data-nav="calendar" style="font-size:12px;color:var(--primary);cursor:pointer;font-weight:400">View calendar &rarr;</span>
+      </div>`;
+      data.upcoming_events.forEach(e => {
+        html += `<div class="card" style="padding:10px 14px;border-left:3px solid ${e.color};margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-weight:600;font-size:13px;color:var(--text)">${e.title}</div>
+              ${e.location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${e.location}</div>` : ""}
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${formatDate(e.event_date)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:${e.color}22;color:${e.color}">${e.org}</span>
+              ${e.scheduled ? `<span style="font-size:10px;color:var(--green,#059669)">&#10003;</span>` : ""}
+            </div>
+          </div>
+        </div>`;
+      });
     }
 
     // Pending follow-ups
@@ -131,6 +166,11 @@ export async function renderBrief(el) {
         ev.stopPropagation();
         navigate("jurisdiction-detail", { id: parseInt(link.dataset.eid) });
       });
+    });
+
+    // Brief nav links (Schedule, Calendar)
+    el.querySelectorAll(".brief-nav-link").forEach(link => {
+      link.addEventListener("click", () => { navigate(link.dataset.nav); });
     });
 
     // Click handlers for list items with jurisdiction IDs
