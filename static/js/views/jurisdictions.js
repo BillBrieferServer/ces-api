@@ -10,11 +10,10 @@ function titleCase(s) {
 }
 
 function displayName(name, type) {
-  const tc = titleCase(name);
-  if (type === "city" && tc.startsWith("City of ")) {
-    return tc.slice(8) + ", City of";
+  if (type === "city" && name.toLowerCase().startsWith("city of ")) {
+    return name.slice(8) + ", City of";
   }
-  return tc;
+  return name;
 }
 
 function sortKey(name, type) {

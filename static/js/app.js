@@ -3,7 +3,7 @@ import { renderSchedule } from "./views/schedule.js?v=1773475000";
 import { renderReports } from "./views/reports.js?v=1773474500";
 import { renderCalendar } from "./views/calendar.js?v=1773475000";
 import { renderBrief } from "./views/brief.js?v=1773474600";
-import { renderJurisdictions } from "./views/jurisdictions.js?v=1773700004";
+import { renderJurisdictions } from "./views/jurisdictions.js?v=1773700012";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773700007";
 import { renderOfficials } from "./views/officials.js";
 import { renderVendors } from "./views/vendors.js?v=1773530000";
