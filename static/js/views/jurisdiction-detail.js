@@ -62,7 +62,7 @@ export async function renderJurisdictionDetail(el, id) {
       </div>
       <div class="form-group">
         <label class="form-label">Assigned RM</label>
-        <input class="form-input" id="o-rm" value="${o.assigned_rm || ""}" placeholder="Steve / Drew">
+        <select class="form-input" id="o-rm" style="padding:8px;font-size:13px"><option value="">—</option><option value="Steve" ${o.assigned_rm==="Steve"?"selected":""}>Steve</option><option value="Drew" ${o.assigned_rm==="Drew"?"selected":""}>Drew</option><option value="Both" ${o.assigned_rm==="Both"?"selected":""}>Both</option></select>
       </div>
       <div class="form-group">
         <label class="form-label">Priority</label>
