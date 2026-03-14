@@ -54,7 +54,7 @@ export async function renderVendors(el) {
     listEl.innerHTML = data.map(v => {
       const spend = v.total_spend ? "$" + Number(v.total_spend).toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 0}) : "";
       return `
-      <div class="card" style="padding:14px 16px">
+      <div class="card" style="padding:14px 16px;cursor:pointer" onclick="window.__openVendor(${v.vendor_id})">
         <div style="display:flex;justify-content:space-between;align-items:start">
           <div style="font-weight:600;font-size:0.95rem;margin-bottom:2px">${v.vendor_name}</div>
           ${spend ? `<div style="font-weight:600;font-size:0.85rem;color:var(--accent)">${spend}</div>` : ""}
@@ -85,7 +85,110 @@ export async function renderVendors(el) {
 
   el.querySelector("#add-vendor-btn").addEventListener("click", () => showAddVendorModal(el, load));
 
+  window.__openVendor = (id) => showVendorDetailModal(id, load);
+
   load();
+}
+
+async function showVendorDetailModal(vendorId, reload) {
+  const v = await api(`/vendors/${vendorId}`);
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Vendor Details</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vendor Name *</label>
+        <input class="form-input" id="vd-name" value="${v.vendor_name || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact Name</label>
+        <input class="form-input" id="vd-contact" value="${v.contact_name || ""}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input class="form-input" id="vd-phone" type="tel" value="${v.phone || ""}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="vd-email" type="email" value="${v.email || ""}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Website</label>
+        <input class="form-input" id="vd-website" value="${v.website || ""}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <input class="form-input" id="vd-address" value="${v.address || ""}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label">BlueBook Status</label>
+          <select class="form-select" id="vd-bb">
+            <option value="not_listed" ${v.bluebook_status === "not_listed" ? "selected" : ""}>Not Listed</option>
+            <option value="recruited" ${v.bluebook_status === "recruited" ? "selected" : ""}>Recruited</option>
+            <option value="onboarded" ${v.bluebook_status === "onboarded" ? "selected" : ""}>Onboarded</option>
+            <option value="active" ${v.bluebook_status === "active" ? "selected" : ""}>Active</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">CES Contract Category</label>
+          <select class="form-select" id="vd-cat">
+            <option value="" ${!v.ces_contract_category ? "selected" : ""}>-- None --</option>
+            <option value="Construction & Building Services" ${v.ces_contract_category === "Construction & Building Services" ? "selected" : ""}>Construction & Building</option>
+            <option value="Technology & IT" ${v.ces_contract_category === "Technology & IT" ? "selected" : ""}>Technology & IT</option>
+            <option value="Fleet & Vehicles" ${v.ces_contract_category === "Fleet & Vehicles" ? "selected" : ""}>Fleet & Vehicles</option>
+            <option value="Office Supplies & Furniture" ${v.ces_contract_category === "Office Supplies & Furniture" ? "selected" : ""}>Office Supplies & Furniture</option>
+            <option value="Janitorial & Maintenance" ${v.ces_contract_category === "Janitorial & Maintenance" ? "selected" : ""}>Janitorial & Maintenance</option>
+            <option value="Medical & Health" ${v.ces_contract_category === "Medical & Health" ? "selected" : ""}>Medical & Health</option>
+            <option value="Public Safety & Security" ${v.ces_contract_category === "Public Safety & Security" ? "selected" : ""}>Public Safety & Security</option>
+            <option value="Food Services" ${v.ces_contract_category === "Food Services" ? "selected" : ""}>Food Services</option>
+            <option value="Utility & Heavy Equipment" ${v.ces_contract_category === "Utility & Heavy Equipment" ? "selected" : ""}>Utility & Heavy Equipment</option>
+            <option value="Moving & Storage" ${v.ces_contract_category === "Moving & Storage" ? "selected" : ""}>Moving & Storage</option>
+            <option value="Educational Supplies" ${v.ces_contract_category === "Educational Supplies" ? "selected" : ""}>Educational Supplies</option>
+            <option value="Performing Arts" ${v.ces_contract_category === "Performing Arts" ? "selected" : ""}>Performing Arts</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Source</label>
+        <input class="form-input" id="vd-source" value="${v.source || ""}" readonly style="opacity:0.7">
+      </div>
+      ${v.jurisdictions ? `<div style="font-size:0.85rem;color:var(--text-dim);margin:8px 0;padding:8px 12px;background:var(--card-bg);border-radius:8px">
+        <strong>Entities:</strong> ${v.jurisdictions}${v.total_spend ? ` &mdash; $${Number(v.total_spend).toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 0})} total spend` : ""}
+      </div>` : ""}
+      <button class="btn btn-primary btn-block" id="vd-save">Save Changes</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#vd-save").addEventListener("click", async () => {
+    const body = {
+      vendor_name: overlay.querySelector("#vd-name").value.trim(),
+      contact_name: overlay.querySelector("#vd-contact").value.trim() || null,
+      phone: overlay.querySelector("#vd-phone").value.trim() || null,
+      email: overlay.querySelector("#vd-email").value.trim() || null,
+      website: overlay.querySelector("#vd-website").value.trim() || null,
+      address: overlay.querySelector("#vd-address").value.trim() || null,
+      bluebook_status: overlay.querySelector("#vd-bb").value,
+      ces_contract_category: overlay.querySelector("#vd-cat").value || null,
+      source: overlay.querySelector("#vd-source").value.trim() || null,
+    };
+    if (!body.vendor_name) { overlay.querySelector("#vd-name").focus(); return; }
+    await api(`/vendors/${vendorId}`, { method: "PUT", body });
+    overlay.remove();
+    showToast("Vendor updated");
+    reload();
+  });
 }
 
 function showAddVendorModal(parentEl, reload) {
