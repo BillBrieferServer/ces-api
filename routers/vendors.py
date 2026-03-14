@@ -68,7 +68,9 @@ async def link_vendor_jurisdiction(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        import logging
+        logging.getLogger(__name__).error(f"Vendor link failed: {e}")
+        raise HTTPException(status_code=400, detail="Failed to link vendor to jurisdiction")
 
     return {"status": "linked", "vendor_id": vendor_id,
             "jurisdiction_id": link.jurisdiction_id}

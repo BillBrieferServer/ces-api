@@ -45,10 +45,10 @@ class CSRFSessionMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         new_csrf = getattr(request.state, "new_csrf_session", None)
         if new_csrf:
-            response.set_cookie("csrf_session", new_csrf, max_age=3600, httponly=True, samesite="lax")
+            response.set_cookie("csrf_session", new_csrf, max_age=3600, httponly=True, secure=True, samesite="lax")
         elif not request.cookies.get("ces_session") and not request.cookies.get("csrf_session"):
             csrf_session = secrets.token_hex(32)
-            response.set_cookie("csrf_session", csrf_session, max_age=3600, httponly=True, samesite="lax")
+            response.set_cookie("csrf_session", csrf_session, max_age=3600, httponly=True, secure=True, samesite="lax")
         return response
 
 app.add_middleware(CSRFSessionMiddleware)
@@ -75,7 +75,9 @@ app.include_router(auth_router)
 # --- CSRF Protection (deterministic, multi-worker safe) ---
 import hmac as _hmac
 
-CSRF_SECRET = os.getenv("CSRF_SECRET", secrets.token_hex(32))
+CSRF_SECRET = os.getenv("CSRF_SECRET")
+if not CSRF_SECRET:
+    raise RuntimeError("CSRF_SECRET environment variable is required")
 
 def _get_csrf_token(request) -> str:
     session_cookie = request.cookies.get("bb_session", "")
@@ -226,6 +228,10 @@ async def service_worker():
 
 @app.get("/icons/{filename}")
 async def icons(filename: str):
+    # Prevent path traversal
+    if ".." in filename or "/" in filename or "\\" in filename:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Invalid filename")
     return FileResponse(os.path.join(STATIC_DIR, "icons", filename))
 
 
