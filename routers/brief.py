@@ -83,6 +83,42 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
         for r in result.mappings().all()
     ]
 
+
+    # Schedule: upcoming items (next 7 days, excluding today)
+    result = await db.execute(text("""
+        SELECT si.id, si.title, si.item_date, si.item_time, si.item_type,
+               si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,
+               si.assigned_to, e.location as event_location
+        FROM public.schedule_items si
+        LEFT JOIN events e ON e.id = si.source_event_id
+        WHERE si.item_date > :today AND si.item_date <= :week AND si.completed = false
+        ORDER BY si.item_date, si.item_time
+    """), {"today": today, "week": today + timedelta(days=7)})
+    schedule_upcoming = [
+        {**dict(r), "item_date": str(r["item_date"]),
+         "item_time": str(r["item_time"]) if r["item_time"] else None,
+         "overdue": False}
+        for r in result.mappings().all()
+    ]
+
+    # Upcoming calendar events (next 7 days)
+    result = await db.execute(text("""
+        SELECT e.id, e.title, e.event_date, e.location,
+               cs.org_abbrev, cs.color,
+               CASE WHEN si.id IS NOT NULL THEN true ELSE false END as scheduled
+        FROM events e
+        JOIN calendar_sources cs ON cs.id = e.source_id
+        LEFT JOIN schedule_items si ON si.source_event_id = e.id
+        WHERE e.event_date BETWEEN :today AND :week AND cs.active = true
+        ORDER BY e.event_date
+    """), {"today": today, "week": today + timedelta(days=7)})
+    upcoming_events = [
+        {"id": r["id"], "title": r["title"], "event_date": str(r["event_date"]),
+         "location": r["location"], "org": r["org_abbrev"], "color": r["color"],
+         "scheduled": r["scheduled"]}
+        for r in result.mappings().all()
+    ]
+
     # Pending follow-ups (follow_up_date <= today, not completed)
     result = await db.execute(text("""
         SELECT i.interaction_id, i.jurisdiction_id,
