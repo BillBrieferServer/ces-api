@@ -11,7 +11,7 @@ DATABASE_URL = (
     f"/{os.getenv('DB_NAME', 'qibrain')}"
 )
 
-engine = create_async_engine(DATABASE_URL, pool_size=5, max_overflow=5)
+engine = create_async_engine(DATABASE_URL, pool_size=5, max_overflow=5, pool_recycle=1800, pool_pre_ping=True)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 
