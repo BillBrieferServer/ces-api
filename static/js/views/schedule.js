@@ -25,8 +25,8 @@ function showContactPopup(el, anchorEl, info) {
   if (info.phone) html += `<div style="margin-bottom:4px"><a href="tel:${info.phone}" style="color:var(--accent);text-decoration:none">${info.phone}</a> <span style="color:var(--text-dim);font-size:11px">work</span></div>`;
   if (info.cell_phone) html += `<div style="margin-bottom:4px"><a href="tel:${info.cell_phone}" style="color:var(--accent);text-decoration:none">${info.cell_phone}</a> <span style="color:var(--text-dim);font-size:11px">cell</span></div>`;
   if (info.email) html += `<div style="margin-bottom:4px"><a href="mailto:${info.email}" style="color:var(--accent);text-decoration:none">${info.email}</a></div>`;
-  if (info.address) html += `<div style="color:var(--text-dim);font-size:12px;margin-top:6px">${info.address}</div>`;
-  if (info.physical_address) html += `<div style="color:var(--text-dim);font-size:12px;margin-top:6px">${info.physical_address}</div>`;
+  if (info.address) html += `<div style="font-size:12px;margin-top:6px"><a href="https://maps.google.com/?q=${encodeURIComponent(info.address)}" target="_blank" style="color:var(--accent);text-decoration:none">${info.address}</a></div>`;
+  if (info.physical_address) html += `<div style="font-size:12px;margin-top:6px"><a href="https://maps.google.com/?q=${encodeURIComponent(info.physical_address)}" target="_blank" style="color:var(--accent);text-decoration:none">${info.physical_address}</a></div>`;
 
   popup.innerHTML = html;
   document.body.appendChild(popup);
