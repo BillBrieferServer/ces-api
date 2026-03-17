@@ -133,7 +133,10 @@ function showEditOfficialModal(officialId, existing, refreshFn) {
         <label class="form-label">Email</label>
         <input class="form-input" id="off-email" type="email" value="${existing.email || ""}" placeholder="name@example.com">
       </div>
-      <button class="btn btn-primary btn-block" id="off-submit">Save Changes</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-block" id="off-delete" style="background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid #DC2626;flex:1">Delete</button>
+        <button class="btn btn-primary btn-block" id="off-submit" style="flex:2">Save Changes</button>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -161,6 +164,19 @@ function showEditOfficialModal(officialId, existing, refreshFn) {
       await api(`/officials/${officialId}`, { method: "PUT", body });
       showToast("Contact updated");
       overlay.remove();
+      refreshFn();
+    } catch (err) {
+      showToast("Error: " + err.message);
+    }
+  });
+
+  // Delete handler
+  overlay.querySelector("#off-delete").addEventListener("click", async () => {
+    if (!confirm(`Delete ${existing.name}? This cannot be undone.`)) return;
+    try {
+      await api(`/officials/${officialId}`, { method: "DELETE" });
+      overlay.remove();
+      showToast("Contact deleted");
       refreshFn();
     } catch (err) {
       showToast("Error: " + err.message);

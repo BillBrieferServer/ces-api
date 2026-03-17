@@ -5,7 +5,7 @@ import { renderCalendar } from "./views/calendar.js?v=1773475000";
 import { renderBrief } from "./views/brief.js?v=1773474600";
 import { renderJurisdictions } from "./views/jurisdictions.js?v=1773700012";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773700008";
-import { renderOfficials } from "./views/officials.js";
+import { renderOfficials } from "./views/officials.js?v=1773700008";
 import { renderVendors } from "./views/vendors.js?v=1773530000";
 import { renderMap } from "./views/map.js?v=1773700004";
 
@@ -52,10 +52,12 @@ export async function api(path, opts = {}) {
         body: opts.body ? JSON.stringify(opts.body) : undefined,
       });
       if (!retry.ok) throw new Error(`API error ${retry.status}`);
+      if (retry.status === 204) return null;
       return retry.json();
     }
   }
   if (!res.ok) throw new Error(`API error ${res.status}`);
+  if (res.status === 204) return null;
   return res.json();
 }
 
