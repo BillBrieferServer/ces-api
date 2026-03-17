@@ -17,9 +17,13 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
     result = await db.execute(text("""
         SELECT si.id, si.title, si.item_date, si.item_time, si.item_type,
                si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,
-               si.assigned_to, e.location as event_location
+               si.assigned_to, e.location as event_location,
+               si.official_id, o.name as official_name,
+               si.vendor_id, v.vendor_name as vendor_name
         FROM public.schedule_items si
         LEFT JOIN events e ON e.id = si.source_event_id
+        LEFT JOIN public.officials o ON o.official_id = si.official_id
+        LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date < :today AND si.completed = false
         ORDER BY si.item_date, si.item_time
     """), {"today": today})
@@ -34,9 +38,13 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
     result = await db.execute(text("""
         SELECT si.id, si.title, si.item_date, si.item_time, si.item_type,
                si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,
-               si.assigned_to, e.location as event_location
+               si.assigned_to, e.location as event_location,
+               si.official_id, o.name as official_name,
+               si.vendor_id, v.vendor_name as vendor_name
         FROM public.schedule_items si
         LEFT JOIN events e ON e.id = si.source_event_id
+        LEFT JOIN public.officials o ON o.official_id = si.official_id
+        LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date = :today AND si.completed = false
         ORDER BY si.item_time, si.title
     """), {"today": today})
@@ -52,9 +60,13 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
     result = await db.execute(text("""
         SELECT si.id, si.title, si.item_date, si.item_time, si.item_type,
                si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,
-               si.assigned_to, e.location as event_location
+               si.assigned_to, e.location as event_location,
+               si.official_id, o.name as official_name,
+               si.vendor_id, v.vendor_name as vendor_name
         FROM public.schedule_items si
         LEFT JOIN events e ON e.id = si.source_event_id
+        LEFT JOIN public.officials o ON o.official_id = si.official_id
+        LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date > :today AND si.item_date <= :horizon AND si.completed = false
         ORDER BY si.item_date, si.item_time
     """), {"today": today, "horizon": today + timedelta(days=8)})

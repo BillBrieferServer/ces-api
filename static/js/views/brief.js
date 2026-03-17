@@ -1,4 +1,4 @@
-import { api, navigate, formatDate, badge } from "../app.js";
+import { api, navigate, formatDate, badge, showToast } from "../app.js";
 
 const SCHED_BADGE = {
   entity_visit: { label: "Visit", bg: "rgba(5,150,105,0.2)", color: "#059669" },
@@ -8,30 +8,113 @@ const SCHED_BADGE = {
   custom:       { label: "Custom", bg: "rgba(71,85,105,0.2)", color: "#475569" },
 };
 
-function schedCard(item, overdue) {
+function showContactPopup(anchorEl, info) {
+  document.querySelectorAll(".sched-contact-popup").forEach(p => p.remove());
+  const popup = document.createElement("div");
+  popup.className = "sched-contact-popup";
+  popup.style.cssText = "position:fixed;z-index:1000;background:var(--bg-card,#1e1e2e);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px 16px;min-width:240px;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,0.4);font-size:13px;";
+  let h = `<div style="font-weight:700;font-size:14px;margin-bottom:8px">${info.name}</div>`;
+  if (info.title) h += `<div style="color:var(--text-dim);font-size:12px;margin-bottom:8px">${info.title}</div>`;
+  if (info.phone) h += `<div style="margin-bottom:4px"><a href="tel:${info.phone}" style="color:var(--accent);text-decoration:none">${info.phone}</a> <span style="color:var(--text-dim);font-size:11px">work</span></div>`;
+  if (info.cell_phone) h += `<div style="margin-bottom:4px"><a href="tel:${info.cell_phone}" style="color:var(--accent);text-decoration:none">${info.cell_phone}</a> <span style="color:var(--text-dim);font-size:11px">cell</span></div>`;
+  if (info.email) h += `<div style="margin-bottom:4px"><a href="mailto:${info.email}" style="color:var(--accent);text-decoration:none">${info.email}</a></div>`;
+  if (info.address) h += `<div style="color:var(--text-dim);font-size:12px;margin-top:6px">${info.address}</div>`;
+  popup.innerHTML = h;
+  document.body.appendChild(popup);
+  const rect = anchorEl.getBoundingClientRect();
+  popup.style.left = Math.min(rect.left, window.innerWidth - 340) + "px";
+  popup.style.top = (rect.bottom + 6) + "px";
+  const closer = (e) => { if (!popup.contains(e.target) && e.target !== anchorEl) { popup.remove(); document.removeEventListener("click", closer); } };
+  setTimeout(() => document.addEventListener("click", closer), 10);
+}
+
+function schedCard(item, overdue, editing) {
   const b = SCHED_BADGE[item.item_type] || SCHED_BADGE.custom;
-  return `<div class="card" style="padding:10px 14px;${overdue ? 'border-left:3px solid #DC2626;' : ''}margin-bottom:6px">
+
+  if (editing) {
+    return `<div class="card" style="padding:10px 14px;border:1px solid var(--primary);margin-bottom:6px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Title</label>
+            <input id="brief-edit-title" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.title}" />
+          </div>
+          <div style="flex:0 0 130px">
+            <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Date</label>
+            <input id="brief-edit-date" type="date" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.item_date}" />
+          </div>
+          <div style="flex:0 0 90px">
+            <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Time</label>
+            <input id="brief-edit-time" type="time" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.item_time ? item.item_time.slice(0,5) : ''}" />
+          </div>
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Notes</label>
+          <input id="brief-edit-notes" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.notes || ''}" placeholder="Notes..." />
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Assigned to</label>
+          <select id="brief-edit-assigned" class="form-select" style="padding:4px 8px;font-size:12px">
+            <option value="">Unassigned</option>
+            <option value="Steve" ${item.assigned_to === 'Steve' ? 'selected' : ''}>Steve</option>
+            <option value="Drew" ${item.assigned_to === 'Drew' ? 'selected' : ''}>Drew</option>
+            <option value="Both" ${item.assigned_to === 'Both' ? 'selected' : ''}>Both</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn btn-primary btn-sm brief-edit-save" data-sid="${item.id}" style="padding:4px 12px;font-size:11px;min-height:0">Save</button>
+          <button class="btn btn-sm brief-edit-cancel" style="padding:4px 12px;font-size:11px;min-height:0;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border)">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="card" style="padding:10px 14px;${overdue ? 'border-left:3px solid #DC2626;' : ''}${item.completed ? 'opacity:0.5;' : ''}margin-bottom:6px">
     <div style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" class="brief-sched-check" data-sid="${item.id}" style="width:18px;height:18px;cursor:pointer;accent-color:${b.color}">
+      <input type="checkbox" class="brief-sched-check" data-sid="${item.id}" ${item.completed ? "checked" : ""} style="width:18px;height:18px;cursor:pointer;accent-color:${b.color}">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${b.bg};color:${b.color}">${b.label}</span>
           ${item.assigned_to ? `<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.2);color:#EAB308">${item.assigned_to}</span>` : ""}
           ${item.item_time ? `<span style="font-size:11px;color:var(--text-muted)">${item.item_time.slice(0,5)}</span>` : ""}
-          <span style="font-weight:600;font-size:13px;color:var(--text)">${item.title}</span>
+          <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
         </div>
         ${item.event_location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.event_location}</div>` : ""}
-        ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="brief-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
+        ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="brief-entity-link" data-eid="${item.entity_id}">${item.entity_name} <span class="brief-contact-btn" data-contact-type="entity" data-contact-id="${item.entity_id}" style="font-size:10px;color:var(--text-dim);cursor:pointer;text-decoration:underline">info</span></div>` : ""}
+        ${item.official_name ? `<div style="font-size:11px;color:#D97706;margin-top:1px;cursor:pointer" class="brief-contact-btn" data-contact-type="official" data-contact-id="${item.official_id}">Contact: ${item.official_name}</div>` : ""}
+        ${item.vendor_name ? `<div style="font-size:11px;color:#059669;margin-top:1px;cursor:pointer" class="brief-contact-btn" data-contact-type="vendor" data-contact-id="${item.vendor_id}">Vendor: ${item.vendor_name}</div>` : ""}
         ${overdue ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">${formatDate(item.item_date)}</div>` : ""}
         ${!overdue && item.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${item.notes}</div>` : ""}
       </div>
+      <button class="brief-edit-btn" data-sid="${item.id}" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:11px;padding:4px;font-weight:600" title="Edit">Edit</button>
+      <button class="brief-del" data-sid="${item.id}" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:4px" title="Remove">&times;</button>
     </div>
   </div>`;
 }
 
 export async function renderBrief(el) {
-  try {
-    const data = await api("/brief");
+  let editingItem = null;
+  let allSchedItems = [];
+
+  async function load() {
+    try {
+      const data = await api("/brief");
+      // Combine all schedule items for lookup
+      allSchedItems = [
+        ...(data.schedule_overdue || []),
+        ...(data.schedule_today || []),
+        ...(data.schedule_upcoming || []),
+      ];
+      return data;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function renderAll() {
+    const data = await load();
+    if (!data) { el.innerHTML = `<div class="empty">Failed to load brief</div>`; return; }
+
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -40,7 +123,7 @@ export async function renderBrief(el) {
     // Schedule: Overdue
     if (data.schedule_overdue.length > 0) {
       html += `<div class="section-header" style="color:#DC2626">Overdue</div>`;
-      data.schedule_overdue.forEach(item => { html += schedCard(item, true); });
+      data.schedule_overdue.forEach(item => { html += schedCard(item, true, editingItem === item.id); });
     }
 
     // Schedule: Today
@@ -48,10 +131,10 @@ export async function renderBrief(el) {
     if (data.schedule_today.length === 0) {
       html += `<div class="card"><div class="empty" style="font-size:0.85rem">Nothing scheduled for today</div></div>`;
     } else {
-      data.schedule_today.forEach(item => { html += schedCard(item, false); });
+      data.schedule_today.forEach(item => { html += schedCard(item, false, editingItem === item.id); });
     }
 
-    // Schedule: Upcoming (next 7 days)
+    // Schedule: Upcoming
     if (data.schedule_upcoming && data.schedule_upcoming.length > 0) {
       html += `<div class="section-header">Upcoming Schedule</div>`;
       let lastUpDate = null;
@@ -63,7 +146,7 @@ export async function renderBrief(el) {
           html += `<div style="font-size:11px;font-weight:600;margin:10px 0 4px;color:var(--text-dim)">${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}</div>`;
           lastUpDate = item.item_date;
         }
-        html += schedCard(item, false);
+        html += schedCard(item, false, editingItem === item.id);
       });
     }
 
@@ -90,7 +173,7 @@ export async function renderBrief(el) {
       });
     }
 
-// Pending follow-ups
+    // Pending follow-ups
     html += `<div class="section-header">Pending Follow-ups</div>`;
     if (data.pending_followups.length === 0) {
       html += `<div class="card"><div class="empty">No pending follow-ups</div></div>`;
@@ -157,35 +240,105 @@ export async function renderBrief(el) {
     }
 
     el.innerHTML = html;
+    bindEvents();
+  }
 
-    // Schedule completion checkboxes
+  function bindEvents() {
+    // Completion checkboxes
     el.querySelectorAll(".brief-sched-check").forEach(chk => {
       chk.addEventListener("change", async () => {
         const sid = chk.dataset.sid;
-        await api(`/calendar/schedule/${sid}?completed=true`, { method: "PATCH" });
-        renderBrief(el);
+        const completed = chk.checked;
+        await api(`/calendar/schedule/${sid}?completed=${completed}`, { method: "PATCH" });
+        await renderAll();
       });
     });
 
-    // Schedule entity links
-    el.querySelectorAll(".brief-entity-link").forEach(link => {
-      link.addEventListener("click", (ev) => {
+    // Edit buttons
+    el.querySelectorAll(".brief-edit-btn").forEach(btn => {
+      btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        navigate("jurisdiction-detail", { id: parseInt(link.dataset.eid) });
+        editingItem = parseInt(btn.dataset.sid);
+        renderAll();
       });
     });
 
-    // Brief nav links (Schedule, Calendar)
+    // Edit save
+    el.querySelectorAll(".brief-edit-save").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const sid = btn.dataset.sid;
+        const title = el.querySelector("#brief-edit-title").value.trim();
+        const item_date = el.querySelector("#brief-edit-date").value;
+        const notes = el.querySelector("#brief-edit-notes").value.trim();
+        const assigned = el.querySelector("#brief-edit-assigned") ? el.querySelector("#brief-edit-assigned").value : "";
+        if (!title || !item_date) return;
+        const params = new URLSearchParams();
+        params.set("title", title);
+        params.set("item_date", item_date);
+        params.set("notes", notes);
+        params.set("assigned_to", assigned);
+        const itemTime = el.querySelector("#brief-edit-time") ? el.querySelector("#brief-edit-time").value : "";
+        if (itemTime) params.set("item_time", itemTime);
+        await api(`/calendar/schedule/${sid}?${params}`, { method: "PATCH" });
+        editingItem = null;
+        await renderAll();
+      });
+    });
+
+    // Edit cancel
+    el.querySelectorAll(".brief-edit-cancel").forEach(btn => {
+      btn.addEventListener("click", () => { editingItem = null; renderAll(); });
+    });
+
+    // Delete buttons
+    el.querySelectorAll(".brief-del").forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const sid = btn.dataset.sid;
+        await api(`/calendar/schedule/${sid}`, { method: "DELETE" });
+        await renderAll();
+      });
+    });
+
+    // Entity links (click name to navigate, click "info" for popup)
+    el.querySelectorAll(".brief-entity-link").forEach(link => {
+      link.addEventListener("click", (e) => {
+        if (e.target.classList.contains("brief-contact-btn")) return;
+        const eid = link.dataset.eid;
+        navigate("jurisdiction-detail", { id: parseInt(eid) });
+      });
+    });
+
+    // Contact info popups
+    el.querySelectorAll(".brief-contact-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const type = btn.dataset.contactType;
+        const id = btn.dataset.contactId;
+        try {
+          if (type === "entity") {
+            const j = await api(`/jurisdictions/${id}`);
+            const p = j.profile || {};
+            showContactPopup(btn, { name: j.name, title: j.type ? j.type.replace(/_/g, " ") : "", phone: p.office_phone, address: p.physical_address || p.mailing_address });
+          } else if (type === "official") {
+            const o = await api(`/officials/${id}`);
+            showContactPopup(btn, { name: o.name, title: o.title, phone: o.phone, email: o.email, address: o.physical_address });
+          } else if (type === "vendor") {
+            const v = await api(`/vendors/${id}`);
+            showContactPopup(btn, { name: v.vendor_name, title: v.contact_name ? (v.contact_title ? v.contact_name + " \u2014 " + v.contact_title : v.contact_name) : "", phone: v.phone, cell_phone: v.cell_phone, email: v.email, address: v.address });
+          }
+        } catch (err) {
+          showToast("Could not load contact info");
+        }
+      });
+    });
+
+    // Brief nav links
     el.querySelectorAll(".brief-nav-link").forEach(link => {
       link.addEventListener("click", () => { navigate(link.dataset.nav); });
     });
 
-    // Brief nav links (Schedule, Calendar)
-    el.querySelectorAll(".brief-nav-link").forEach(link => {
-      link.addEventListener("click", () => { navigate(link.dataset.nav); });
-    });
-
-    // Click handlers for list items with jurisdiction IDs
+    // Jurisdiction list items
     el.querySelectorAll("[data-jid]").forEach(item => {
       item.addEventListener("click", () => {
         const jid = item.dataset.jid;
@@ -193,7 +346,7 @@ export async function renderBrief(el) {
         navigate("jurisdiction-detail", { id: jid, name });
       });
     });
-  } catch (err) {
-    el.innerHTML = `<div class="empty">Failed to load brief: ${err.message}</div>`;
   }
+
+  await renderAll();
 }
