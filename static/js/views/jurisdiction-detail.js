@@ -462,7 +462,10 @@ function showOfficialModal(parentEl, jurisdictionId, existing, roleType) {
         <label class="form-label">Notes</label>
         <textarea class="form-textarea" id="off-notes" rows="2" placeholder="Optional notes...">${isEdit ? (existing.notes || "") : ""}</textarea>
       </div>
-      <button class="btn btn-primary btn-block" id="off-submit">${isEdit ? "Save Changes" : "Add Contact"}</button>
+      <div style="display:flex;gap:8px">
+      ${isEdit ? '<button class="btn btn-block" id="off-delete" style="background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid #DC2626;flex:1">Delete</button>' : ''}
+      <button class="btn btn-primary btn-block" id="off-submit" style="flex:${isEdit ? 2 : 1}">${isEdit ? "Save Changes" : "Add Contact"}</button>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -505,6 +508,22 @@ function showOfficialModal(parentEl, jurisdictionId, existing, roleType) {
       showToast("Error: " + err.message);
     }
   });
+
+  // Delete handler
+  const deleteBtn = overlay.querySelector("#off-delete");
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", async () => {
+      if (!confirm(`Delete ${existing.name}? This cannot be undone.`)) return;
+      try {
+        await api(`/officials/${existing.official_id}`, { method: "DELETE" });
+        overlay.remove();
+        showToast("Contact deleted");
+        renderJurisdictionDetail(parentEl, jurisdictionId);
+      } catch (err) {
+        showToast("Error: " + err.message);
+      }
+    });
+  }
 }
 
 

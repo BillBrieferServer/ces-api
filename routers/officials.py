@@ -137,3 +137,25 @@ async def update_official(official_id: int, data: OfficialUpdateRequest, db: Asy
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Official not found")
     return OfficialResponse(**dict(row))
+
+
+@router.delete("/{official_id}", status_code=204)
+async def delete_official(official_id: int, db: AsyncSession = Depends(get_db)):
+    # Verify official exists
+    result = await db.execute(text(
+        "SELECT official_id FROM public.officials WHERE official_id = :oid"
+    ), {"oid": official_id})
+    if not result.first():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Official not found")
+
+    # Null out any interaction references
+    await db.execute(text(
+        "UPDATE ces.interactions SET official_id = NULL WHERE official_id = :oid"
+    ), {"oid": official_id})
+
+    # Delete the official
+    await db.execute(text(
+        "DELETE FROM public.officials WHERE official_id = :oid"
+    ), {"oid": official_id})
+    await db.commit()
