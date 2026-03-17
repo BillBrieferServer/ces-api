@@ -200,6 +200,28 @@ export async function renderVendors(el) {
         </div>
 
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div style="font-weight:600;margin-bottom:8px">Schedule</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input class="form-input" id="vs-date" type="date" style="flex:0 0 140px;padding:6px 8px;font-size:12px">
+            <input class="form-input" id="vs-time" type="time" style="flex:0 0 100px;padding:6px 8px;font-size:12px">
+            <select class="form-select" id="vs-type" style="flex:0 0 110px;padding:6px 8px;font-size:12px">
+              <option value="entity_visit">Visit</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="presentation">Present</option>
+              <option value="custom">Custom</option>
+            </select>
+            <select class="form-select" id="vs-assigned" style="flex:0 0 90px;padding:6px 8px;font-size:12px">
+              <option value="">Assign</option>
+              <option value="Steve">Steve</option>
+              <option value="Drew">Drew</option>
+              <option value="Both">Both</option>
+            </select>
+          </div>
+          <input class="form-input" id="vs-title" style="margin-top:6px;padding:6px 8px;font-size:12px" placeholder="Title (e.g. Meet with Jeff re: Keller)" value="Vendor meeting — ${v.vendor_name}">
+          <button class="btn btn-primary btn-block" id="vs-add" style="margin-top:8px">Add to Schedule</button>
+        </div>
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
           <div style="font-weight:600;margin-bottom:8px">Pipeline</div>
           <div class="form-group">
             <label class="form-label">Status</label>
@@ -241,6 +263,20 @@ export async function renderVendors(el) {
 
     overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
     overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelector("#vs-add").addEventListener("click", async () => {
+      const sDate = overlay.querySelector("#vs-date").value;
+      const sTime = overlay.querySelector("#vs-time").value;
+      const sTitle = overlay.querySelector("#vs-title").value.trim();
+      const sType = overlay.querySelector("#vs-type").value;
+      const sAssigned = overlay.querySelector("#vs-assigned").value;
+      if (!sDate || !sTitle) { showToast("Date and title required"); return; }
+      let url = `/calendar/schedule/custom?title=${encodeURIComponent(sTitle)}&item_date=${sDate}&item_type=${sType}&vendor_id=${vendorId}`;
+      if (sTime) url += `&item_time=${encodeURIComponent(sTime)}`;
+      if (sAssigned) url += `&assigned_to=${encodeURIComponent(sAssigned)}`;
+      await api(url, { method: "POST" });
+      showToast("Added to schedule");
+    });
 
     overlay.querySelector("#vp-save").addEventListener("click", async () => {
       // Save contact info via PUT
