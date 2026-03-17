@@ -55,7 +55,7 @@ async def list_vendors(
     where_clause = ("WHERE " + " AND ".join(where)) if where else ""
 
     # Sort: pipeline view by next_action_date, intelligence by spend
-    order = "v.next_action_date ASC NULLS LAST, v.vendor_name" if pipeline == "active" else "total_spend DESC, v.vendor_name"
+    order = "next_action_date ASC NULLS LAST, vendor_name" if pipeline == "active" else "total_spend DESC, vendor_name"
 
     result = await db.execute(text(f"""
         SELECT * FROM (
