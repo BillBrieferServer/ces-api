@@ -202,7 +202,7 @@ export async function renderVendors(el) {
             <label class="form-label">Notes</label>
             <textarea class="form-textarea" id="vp-notes" rows="3">${v.notes || ''}</textarea>
           </div>
-          <button class="btn btn-primary btn-block" id="vp-save">Save</button>
+          <div style="display:flex;gap:8px"><button class="btn btn-block" id="vp-delete" style="background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid #DC2626;flex:1">Delete</button><button class="btn btn-primary btn-block" id="vp-save" style="flex:2">Save</button></div>
         </div>
       </div>
     `;
@@ -224,6 +224,19 @@ export async function renderVendors(el) {
       showToast("Vendor updated");
       const d = await loadData();
       render(d);
+    });
+
+    overlay.querySelector("#vp-delete").addEventListener("click", async () => {
+      if (!confirm('Delete ' + v.vendor_name + '? This cannot be undone.')) return;
+      try {
+        await api('/vendors/' + vendorId, { method: 'DELETE' });
+        overlay.remove();
+        showToast('Vendor deleted');
+        const d = await loadData();
+        render(d);
+      } catch (err) {
+        showToast('Error: ' + err.message);
+      }
     });
   }
 
