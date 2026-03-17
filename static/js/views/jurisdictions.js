@@ -73,6 +73,7 @@ export async function renderJurisdictions(el) {
       <select class="filter-select" id="j-sort">
         <option value="population">Pop. (high)</option>
         <option value="name">Name (A-Z)</option>
+        <option value="county">County / Pop.</option>
       </select>
     </div>
     <div id="j-list"><div class="spinner"></div></div>
@@ -91,7 +92,14 @@ export async function renderJurisdictions(el) {
     const data = await api(`/jurisdictions?${params}`);
     const search = currentFilters.search.toLowerCase();
     const searched = search ? data.filter(j => j.name.toLowerCase().includes(search)) : data;
-    const filtered = currentFilters.sort === "name" ? searched.sort((a, b) => sortKey(a.name, a.type).localeCompare(sortKey(b.name, b.type))) : searched;
+    let filtered;
+    if (currentFilters.sort === "name") {
+      filtered = searched.sort((a, b) => sortKey(a.name, a.type).localeCompare(sortKey(b.name, b.type)));
+    } else if (currentFilters.sort === "county") {
+      filtered = searched.sort((a, b) => (a.county_name || "").localeCompare(b.county_name || "") || (b.population || 0) - (a.population || 0));
+    } else {
+      filtered = searched;
+    }
 
     if (filtered.length === 0) {
       listEl.innerHTML = `<div class="empty">No matching entities</div>`;
