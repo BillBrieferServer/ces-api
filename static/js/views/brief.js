@@ -49,6 +49,10 @@ function schedCard(item, overdue, editing) {
           </div>
         </div>
         <div>
+          <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Location / Address</label>
+          <input id="brief-edit-location" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.location || ''}" placeholder="Address..." />
+        </div>
+        <div>
           <label style="font-size:10px;font-weight:600;color:var(--text-secondary)">Notes</label>
           <input id="brief-edit-notes" class="form-input" style="padding:4px 8px;font-size:12px" value="${item.notes || ''}" placeholder="Notes..." />
         </div>
@@ -79,7 +83,7 @@ function schedCard(item, overdue, editing) {
           ${item.item_time ? `<span style="font-size:11px;color:var(--text-muted)">${item.item_time.slice(0,5)}</span>` : ""}
           <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
         </div>
-        ${item.event_location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.event_location}</div>` : ""}
+        ${item.location ? `<div style="font-size:11px;margin-top:2px"><a href="https://maps.google.com/?q=${encodeURIComponent(item.location)}" target="_blank" style="color:var(--accent);text-decoration:none">${item.location}</a></div>` : ""}
         ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="brief-entity-link" data-eid="${item.entity_id}">${item.entity_name} <span class="brief-contact-btn" data-contact-type="entity" data-contact-id="${item.entity_id}" style="font-size:10px;color:var(--text-dim);cursor:pointer;text-decoration:underline">info</span></div>` : ""}
         ${item.official_name ? `<div style="font-size:11px;color:#D97706;margin-top:1px;cursor:pointer" class="brief-contact-btn" data-contact-type="official" data-contact-id="${item.official_id}">Contact: ${item.official_name}</div>` : ""}
         ${item.vendor_name ? `<div style="font-size:11px;color:#059669;margin-top:1px;cursor:pointer" class="brief-contact-btn" data-contact-type="vendor" data-contact-id="${item.vendor_id}">Vendor: ${item.vendor_name}</div>` : ""}
@@ -270,12 +274,14 @@ export async function renderBrief(el) {
         const title = el.querySelector("#brief-edit-title").value.trim();
         const item_date = el.querySelector("#brief-edit-date").value;
         const notes = el.querySelector("#brief-edit-notes").value.trim();
+        const locationVal = el.querySelector("#brief-edit-location") ? el.querySelector("#brief-edit-location").value.trim() : "";
         const assigned = el.querySelector("#brief-edit-assigned") ? el.querySelector("#brief-edit-assigned").value : "";
         if (!title || !item_date) return;
         const params = new URLSearchParams();
         params.set("title", title);
         params.set("item_date", item_date);
         params.set("notes", notes);
+        params.set("location", locationVal);
         params.set("assigned_to", assigned);
         const itemTime = el.querySelector("#brief-edit-time") ? el.querySelector("#brief-edit-time").value : "";
         if (itemTime) params.set("item_time", itemTime);

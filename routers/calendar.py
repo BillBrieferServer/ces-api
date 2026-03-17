@@ -206,7 +206,7 @@ async def get_schedule(
         text(
             "SELECT si.id, si.title, si.item_date, si.item_time, si.end_date, si.item_type,"
             " si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,"
-            " cs.org_abbrev, cs.color as org_color, e.location as event_location, si.assigned_to,"
+            " cs.org_abbrev, cs.color as org_color, COALESCE(si.location, e.location) as item_location, si.assigned_to,"
             " si.official_id, o.name as official_name,"
             " si.vendor_id, v.vendor_name"
             " FROM schedule_items si"
@@ -238,7 +238,7 @@ async def get_schedule(
             "overdue": r["item_date"] < today and not r["completed"],
             "org_abbrev": r["org_abbrev"],
             "org_color": r["org_color"],
-            "location": r["event_location"],
+            "location": r["item_location"],
             "assigned_to": r["assigned_to"],
             "official_id": r["official_id"],
             "official_name": r["official_name"],
@@ -297,7 +297,7 @@ async def update_event(
 
 
 @router.post("/calendar/schedule")
-async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)):
+async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str] = Query(None), location: Optional[str] = Query(None), notes: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)):
     existing = await db.execute(
         text("SELECT id FROM schedule_items WHERE source_event_id = :eid"),
         {"eid": event_id},
@@ -315,16 +315,17 @@ async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str]
 
     await db.execute(
         text("""
-            INSERT INTO schedule_items (title, item_date, end_date, item_type, source_event_id, notes, assigned_to)
-            VALUES (:title, :item_date, :end_date, 'event', :source_event_id, :notes, :assigned_to)
+            INSERT INTO schedule_items (title, item_date, end_date, item_type, source_event_id, notes, assigned_to, location)
+            VALUES (:title, :item_date, :end_date, 'event', :source_event_id, :notes, :assigned_to, :location)
         """),
         {
             "title": evt["title"],
             "item_date": evt["event_date"],
             "end_date": evt["end_date"],
             "source_event_id": evt["id"],
-            "notes": None,
+            "notes": notes or None,
             "assigned_to": assigned_to or None,
+            "location": location or evt["location"],
         },
     )
     await db.commit()
@@ -342,6 +343,7 @@ async def create_custom_schedule_item(
     entity_id: Optional[int] = Query(None),
     official_id: Optional[int] = Query(None),
     vendor_id: Optional[int] = Query(None),
+    location: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a custom schedule item with optional entity/official/vendor links."""
@@ -356,16 +358,16 @@ async def create_custom_schedule_item(
     result = await db.execute(
         text("""
             INSERT INTO schedule_items (title, item_date, item_time, item_type, notes, assigned_to,
-                                        entity_id, entity_name, official_id, vendor_id)
+                                        entity_id, entity_name, official_id, vendor_id, location)
             VALUES (:title, :item_date, :item_time, :item_type, :notes, :assigned_to,
-                    :entity_id, :entity_name, :official_id, :vendor_id)
+                    :entity_id, :entity_name, :official_id, :vendor_id, :location)
             RETURNING id
         """),
         {"title": title, "item_date": date.fromisoformat(item_date),
          "item_time": time.fromisoformat(item_time) if item_time else None,
          "item_type": item_type, "notes": notes, "assigned_to": assigned_to or None,
          "entity_id": entity_id, "entity_name": entity_name,
-         "official_id": official_id, "vendor_id": vendor_id},
+         "official_id": official_id, "vendor_id": vendor_id, "location": location},
     )
     await db.commit()
     row = result.first()
@@ -383,6 +385,7 @@ async def update_schedule_item(
     item_time: Optional[str] = None,
     official_id: Optional[int] = None,
     vendor_id: Optional[int] = None,
+    location: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Update a schedule item. When marking complete, clears entity/vendor next_action fields."""
@@ -429,6 +432,10 @@ async def update_schedule_item(
     if vendor_id is not None:
         set_parts.append("vendor_id = :vendor_id")
         params["vendor_id"] = vendor_id if vendor_id else None
+
+    if location is not None:
+        set_parts.append("location = :location")
+        params["location"] = location if location else None
 
     set_clause = ", ".join(set_parts)
     sql = "UPDATE schedule_items SET " + set_clause + " WHERE id = :id"

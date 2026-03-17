@@ -1,8 +1,8 @@
 import { renderSearch } from "./views/search.js?v=1773600010";
-import { renderSchedule } from "./views/schedule.js?v=1773900003";
+import { renderSchedule } from "./views/schedule.js?v=1773900004";
 import { renderReports } from "./views/reports.js?v=1773474500";
-import { renderCalendar } from "./views/calendar.js?v=1773475000";
-import { renderBrief } from "./views/brief.js?v=1773900003";
+import { renderCalendar } from "./views/calendar.js?v=1773900004";
+import { renderBrief } from "./views/brief.js?v=1773900004";
 import { renderJurisdictions } from "./views/jurisdictions.js?v=1773700012";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773700008";
 import { renderOfficials } from "./views/officials.js?v=1773700008";

@@ -502,9 +502,15 @@ export async function renderCalendar(el) {
       const eid = parseInt(schedBtn.dataset.sid);
       const assignSel = el.querySelector("#cal-modal-assign");
       const assigned = assignSel ? assignSel.value : "";
+      const locInput = el.querySelector("#cal-modal-location");
+      const contactInput = el.querySelector("#cal-modal-contact");
+      const location = locInput ? locInput.value.trim() : "";
+      const contact = contactInput ? contactInput.value.trim() : "";
       try {
         let url = `/calendar/schedule?event_id=${eid}`;
         if (assigned) url += `&assigned_to=${encodeURIComponent(assigned)}`;
+        if (location) url += `&location=${encodeURIComponent(location)}`;
+        if (contact) url += `&notes=${encodeURIComponent(contact)}`;
         await api(url, { method: "POST" });
         const evt = events.find(e => e.id === eid);
         if (evt) evt.scheduled = true;
