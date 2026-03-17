@@ -172,6 +172,19 @@ class VendorJurisdictionCreate(BaseModel):
     relationship_type: Optional[str] = "current_vendor"
     annual_spend: Optional[float] = None
     source: Optional[str] = None
+class VendorUpdate(BaseModel):
+    vendor_name: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
+    phone: Optional[str] = None
+    cell_phone: Optional[str] = None
+    email: Optional[str] = None
+    website: Optional[str] = None
+    address: Optional[str] = None
+    bluebook_status: Optional[str] = None
+    ces_contract_category: Optional[str] = None
+    source: Optional[str] = None
+
 class VendorPipelineUpdate(BaseModel):
     pipeline_status: Optional[str] = None
     assigned_rm: Optional[str] = None

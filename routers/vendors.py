@@ -4,7 +4,7 @@ from sqlalchemy import text
 from typing import Optional
 
 from database import get_db
-from models import VendorCreate, VendorListItem, VendorDetail, VendorJurisdictionCreate, VendorSummary, VendorPipelineUpdate
+from models import VendorCreate, VendorUpdate, VendorListItem, VendorDetail, VendorJurisdictionCreate, VendorSummary, VendorPipelineUpdate
 
 router = APIRouter(prefix="/vendors", tags=["vendors"])
 
@@ -102,7 +102,7 @@ async def get_vendor(vendor_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{vendor_id}")
-async def update_vendor(vendor_id: int, update: VendorCreate, db: AsyncSession = Depends(get_db)):
+async def update_vendor(vendor_id: int, update: VendorUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         text("SELECT vendor_id FROM ces.vendors WHERE vendor_id = :id"),
         {"id": vendor_id},
