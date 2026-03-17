@@ -504,13 +504,16 @@ export async function renderCalendar(el) {
       const assigned = assignSel ? assignSel.value : "";
       const locInput = el.querySelector("#cal-modal-location");
       const contactInput = el.querySelector("#cal-modal-contact");
+      const timeInput = el.querySelector("#cal-modal-time");
       const location = locInput ? locInput.value.trim() : "";
       const contact = contactInput ? contactInput.value.trim() : "";
+      const itemTime = timeInput ? timeInput.value : "";
       try {
         let url = `/calendar/schedule?event_id=${eid}`;
         if (assigned) url += `&assigned_to=${encodeURIComponent(assigned)}`;
         if (location) url += `&location=${encodeURIComponent(location)}`;
         if (contact) url += `&notes=${encodeURIComponent(contact)}`;
+        if (itemTime) url += `&item_time=${encodeURIComponent(itemTime)}`;
         await api(url, { method: "POST" });
         const evt = events.find(e => e.id === eid);
         if (evt) evt.scheduled = true;

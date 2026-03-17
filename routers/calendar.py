@@ -297,7 +297,7 @@ async def update_event(
 
 
 @router.post("/calendar/schedule")
-async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str] = Query(None), location: Optional[str] = Query(None), notes: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)):
+async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str] = Query(None), location: Optional[str] = Query(None), notes: Optional[str] = Query(None), item_time: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)):
     existing = await db.execute(
         text("SELECT id FROM schedule_items WHERE source_event_id = :eid"),
         {"eid": event_id},
@@ -315,8 +315,8 @@ async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str]
 
     await db.execute(
         text("""
-            INSERT INTO schedule_items (title, item_date, end_date, item_type, source_event_id, notes, assigned_to, location)
-            VALUES (:title, :item_date, :end_date, 'event', :source_event_id, :notes, :assigned_to, :location)
+            INSERT INTO schedule_items (title, item_date, end_date, item_type, source_event_id, notes, assigned_to, location, item_time)
+            VALUES (:title, :item_date, :end_date, 'event', :source_event_id, :notes, :assigned_to, :location, :item_time)
         """),
         {
             "title": evt["title"],
@@ -326,6 +326,7 @@ async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str]
             "notes": notes or None,
             "assigned_to": assigned_to or None,
             "location": location or evt["location"],
+            "item_time": time.fromisoformat(item_time) if item_time else None,
         },
     )
     await db.commit()
