@@ -53,11 +53,18 @@ export async function renderBrief(el) {
 
     // Schedule: Upcoming (next 7 days)
     if (data.schedule_upcoming && data.schedule_upcoming.length > 0) {
-      html += `<div class="section-header" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Upcoming Schedule</span>
-        <span class="brief-nav-link" data-nav="schedule" style="font-size:12px;color:var(--primary);cursor:pointer;font-weight:400">View all &rarr;</span>
-      </div>`;
-      data.schedule_upcoming.forEach(item => { html += schedCard(item, false); });
+      html += `<div class="section-header">Upcoming Schedule</div>`;
+      let lastUpDate = null;
+      data.schedule_upcoming.forEach(item => {
+        if (item.item_date !== lastUpDate) {
+          const d = new Date(item.item_date + "T00:00:00");
+          const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+          const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+          html += `<div style="font-size:11px;font-weight:600;margin:10px 0 4px;color:var(--text-dim)">${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}</div>`;
+          lastUpDate = item.item_date;
+        }
+        html += schedCard(item, false);
+      });
     }
 
     // Upcoming events from calendar

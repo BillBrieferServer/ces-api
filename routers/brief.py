@@ -55,9 +55,9 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
                si.assigned_to, e.location as event_location
         FROM public.schedule_items si
         LEFT JOIN events e ON e.id = si.source_event_id
-        WHERE si.item_date > :today AND si.item_date <= :week AND si.completed = false
+        WHERE si.item_date > :today AND si.item_date <= :horizon AND si.completed = false
         ORDER BY si.item_date, si.item_time
-    """), {"today": today, "week": today + timedelta(days=7)})
+    """), {"today": today, "horizon": today + timedelta(days=90)})
     schedule_upcoming = [
         {**dict(r), "item_date": str(r["item_date"]),
          "item_time": str(r["item_time"]) if r["item_time"] else None,
