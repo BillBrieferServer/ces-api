@@ -61,6 +61,7 @@ async def list_vendors(
         SELECT * FROM (
             SELECT v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
                    v.bluebook_status, v.ces_contract_category, v.source,
+                   v.contact_title, v.cell_phone,
                    v.pipeline_status, v.assigned_rm, v.notes,
                    v.next_action_date, v.next_action_type,
                    string_agg(DISTINCT j.name, \', \') as jurisdictions,
@@ -82,7 +83,7 @@ async def list_vendors(
 async def get_vendor(vendor_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(text("""
         SELECT v.vendor_id, v.vendor_name, v.contact_name, v.phone, v.email,
-               v.website, v.address, v.bluebook_status, v.ces_contract_category,
+               v.website, v.address, v.contact_title, v.cell_phone, v.bluebook_status, v.ces_contract_category,
                v.source, v.created_date,
                v.pipeline_status, v.assigned_rm, v.notes,
                v.next_action_date, v.next_action_type,
@@ -113,7 +114,7 @@ async def update_vendor(vendor_id: int, update: VendorCreate, db: AsyncSession =
         return {"ok": True}
     set_parts = []
     params = {"id": vendor_id}
-    allowed = ["vendor_name", "contact_name", "phone", "email", "website",
+    allowed = ["vendor_name", "contact_name", "contact_title", "phone", "cell_phone", "email", "website",
                "address", "bluebook_status", "ces_contract_category", "source",
                "pipeline_status", "assigned_rm", "notes", "next_action_date", "next_action_type"]
     for key, val in fields.items():

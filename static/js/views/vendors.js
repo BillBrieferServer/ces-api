@@ -164,9 +164,40 @@ export async function renderVendors(el) {
         </div>
         <div class="card-row"><label>Total Spend</label><span>$${Math.round(v.total_spend || 0).toLocaleString()}</span></div>
         ${v.jurisdictions ? `<div class="card-row"><label>Entities</label><span style="text-align:right;max-width:60%">${v.jurisdictions}</span></div>` : ''}
-        ${v.phone ? `<div class="card-row"><label>Phone</label><span>${v.phone}</span></div>` : ''}
-        ${v.email ? `<div class="card-row"><label>Email</label><span>${v.email}</span></div>` : ''}
-        ${v.website ? `<div class="card-row"><label>Website</label><a href="${v.website}" target="_blank" class="contact-link">${v.website}</a></div>` : ''}
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div style="font-weight:600;margin-bottom:8px">Contact Info</div>
+          <div class="form-group">
+            <label class="form-label">Contact Name</label>
+            <input class="form-input" id="vc-name" value="${v.contact_name || ''}" placeholder="Contact name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Title</label>
+            <input class="form-input" id="vc-title" value="${v.contact_title || ''}" placeholder="Title / Role">
+          </div>
+          <div style="display:flex;gap:8px">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Work Phone</label>
+              <input class="form-input" id="vc-phone" type="tel" value="${v.phone || ''}" placeholder="Work phone">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Cell Phone</label>
+              <input class="form-input" id="vc-cell" type="tel" value="${v.cell_phone || ''}" placeholder="Cell phone">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" id="vc-email" type="email" value="${v.email || ''}" placeholder="Email">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <input class="form-input" id="vc-address" value="${(v.address || '').replace(/"/g, '&quot;')}" placeholder="Address">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Website</label>
+            <input class="form-input" id="vc-website" type="url" value="${v.website || ''}" placeholder="https://...">
+          </div>
+        </div>
 
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
           <div style="font-weight:600;margin-bottom:8px">Pipeline</div>
@@ -212,6 +243,19 @@ export async function renderVendors(el) {
     overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
 
     overlay.querySelector("#vp-save").addEventListener("click", async () => {
+      // Save contact info via PUT
+      const contactBody = {
+        contact_name: overlay.querySelector("#vc-name").value.trim() || null,
+        contact_title: overlay.querySelector("#vc-title").value.trim() || null,
+        phone: overlay.querySelector("#vc-phone").value.trim() || null,
+        cell_phone: overlay.querySelector("#vc-cell").value.trim() || null,
+        email: overlay.querySelector("#vc-email").value.trim() || null,
+        address: overlay.querySelector("#vc-address").value.trim() || null,
+        website: overlay.querySelector("#vc-website").value.trim() || null,
+      };
+      await api(`/vendors/${vendorId}`, { method: "PUT", body: contactBody });
+
+      // Save pipeline info
       const body = {
         pipeline_status: overlay.querySelector("#vp-status").value || null,
         assigned_rm: overlay.querySelector("#vp-rm").value || null,

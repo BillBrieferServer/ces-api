@@ -134,7 +134,9 @@ class InteractionListItem(BaseModel):
 class VendorCreate(BaseModel):
     vendor_name: str
     contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
     phone: Optional[str] = None
+    cell_phone: Optional[str] = None
     email: Optional[str] = None
     website: Optional[str] = None
     address: Optional[str] = None
