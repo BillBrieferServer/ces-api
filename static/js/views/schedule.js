@@ -1,4 +1,4 @@
-import { api, formatDate, navigate } from "../app.js";
+import { api, formatDate, navigate, phoneLink, showToast } from "../app.js";
 
 const ROLLING = 90;
 const MO = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -11,6 +11,40 @@ const SCHED_BADGE = {
   event:        { label: "Event", bg: "rgba(13,148,136,0.2)", color: "#0D9488" },
   custom:       { label: "Custom", bg: "rgba(71,85,105,0.2)", color: "#475569" },
 };
+
+function showContactPopup(el, anchorEl, info) {
+  // Remove any existing popup
+  document.querySelectorAll(".sched-contact-popup").forEach(p => p.remove());
+
+  const popup = document.createElement("div");
+  popup.className = "sched-contact-popup";
+  popup.style.cssText = "position:fixed;z-index:1000;background:var(--bg-card,#1e1e2e);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px 16px;min-width:240px;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,0.4);font-size:13px;";
+
+  let html = `<div style="font-weight:700;font-size:14px;margin-bottom:8px">${info.name}</div>`;
+  if (info.title) html += `<div style="color:var(--text-dim);font-size:12px;margin-bottom:8px">${info.title}</div>`;
+  if (info.phone) html += `<div style="margin-bottom:4px"><a href="tel:${info.phone}" style="color:var(--accent);text-decoration:none">${info.phone}</a> <span style="color:var(--text-dim);font-size:11px">work</span></div>`;
+  if (info.cell_phone) html += `<div style="margin-bottom:4px"><a href="tel:${info.cell_phone}" style="color:var(--accent);text-decoration:none">${info.cell_phone}</a> <span style="color:var(--text-dim);font-size:11px">cell</span></div>`;
+  if (info.email) html += `<div style="margin-bottom:4px"><a href="mailto:${info.email}" style="color:var(--accent);text-decoration:none">${info.email}</a></div>`;
+  if (info.address) html += `<div style="color:var(--text-dim);font-size:12px;margin-top:6px">${info.address}</div>`;
+  if (info.physical_address) html += `<div style="color:var(--text-dim);font-size:12px;margin-top:6px">${info.physical_address}</div>`;
+
+  popup.innerHTML = html;
+  document.body.appendChild(popup);
+
+  // Position near the anchor
+  const rect = anchorEl.getBoundingClientRect();
+  popup.style.left = Math.min(rect.left, window.innerWidth - 340) + "px";
+  popup.style.top = (rect.bottom + 6) + "px";
+
+  // Close on click outside
+  const closer = (e) => {
+    if (!popup.contains(e.target) && e.target !== anchorEl) {
+      popup.remove();
+      document.removeEventListener("click", closer);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", closer), 10);
+}
 
 function fmt(d) { return d.toISOString().slice(0, 10); }
 function parseD(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
@@ -176,9 +210,9 @@ export async function renderSchedule(el) {
                 <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
                 </div>
                 ${item.location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.location}</div>` : ""}
-                ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="sched-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
-                ${item.official_name ? `<div style="font-size:11px;color:#D97706;margin-top:1px">Contact: ${item.official_name}</div>` : ""}
-                ${item.vendor_name ? `<div style="font-size:11px;color:#059669;margin-top:1px">Vendor: ${item.vendor_name}</div>` : ""}
+                ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="sched-entity-link" data-eid="${item.entity_id}">${item.entity_name} <span class="sched-contact-btn" data-contact-type="entity" data-contact-id="${item.entity_id}" style="font-size:10px;color:var(--text-dim);cursor:pointer;text-decoration:underline">info</span></div>` : ""}
+                ${item.official_name ? `<div style="font-size:11px;color:#D97706;margin-top:1px;cursor:pointer" class="sched-contact-btn" data-contact-type="official" data-contact-id="${item.official_id}">Contact: ${item.official_name}</div>` : ""}
+                ${item.vendor_name ? `<div style="font-size:11px;color:#059669;margin-top:1px;cursor:pointer" class="sched-contact-btn" data-contact-type="vendor" data-contact-id="${item.vendor_id}">Vendor: ${item.vendor_name}</div>` : ""}
                 ${item.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${item.notes}</div>` : ""}
               </div>
               <button class="sched-edit-btn" data-sid="${item.id}" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:11px;padding:4px;font-weight:600" title="Edit">Edit</button>
@@ -301,11 +335,54 @@ export async function renderSchedule(el) {
       });
     });
 
-    // Entity links
+    // Entity links (click name to navigate, click "info" for popup)
     el.querySelectorAll(".sched-entity-link").forEach(link => {
-      link.addEventListener("click", () => {
+      link.addEventListener("click", (e) => {
+        if (e.target.classList.contains("sched-contact-btn")) return;
         const eid = link.dataset.eid;
         navigate("jurisdiction-detail", { id: parseInt(eid) });
+      });
+    });
+
+    // Contact info popups
+    el.querySelectorAll(".sched-contact-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const type = btn.dataset.contactType;
+        const id = btn.dataset.contactId;
+        try {
+          if (type === "entity") {
+            const j = await api(`/jurisdictions/${id}`);
+            const p = j.profile || {};
+            showContactPopup(el, btn, {
+              name: j.name,
+              title: j.type ? j.type.replace(/_/g, " ") : "",
+              phone: p.office_phone,
+              address: p.physical_address || p.mailing_address,
+            });
+          } else if (type === "official") {
+            const o = await api(`/officials/${id}`);
+            showContactPopup(el, btn, {
+              name: o.name,
+              title: o.title,
+              phone: o.phone,
+              email: o.email,
+              physical_address: o.physical_address,
+            });
+          } else if (type === "vendor") {
+            const v = await api(`/vendors/${id}`);
+            showContactPopup(el, btn, {
+              name: v.vendor_name,
+              title: v.contact_name ? (v.contact_title ? v.contact_name + " — " + v.contact_title : v.contact_name) : "",
+              phone: v.phone,
+              cell_phone: v.cell_phone,
+              email: v.email,
+              address: v.address,
+            });
+          }
+        } catch (err) {
+          showToast("Could not load contact info");
+        }
       });
     });
 
