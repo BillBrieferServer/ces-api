@@ -177,6 +177,8 @@ export async function renderSchedule(el) {
                 </div>
                 ${item.location ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${item.location}</div>` : ""}
                 ${item.entity_name && item.entity_id ? `<div style="font-size:11px;color:var(--primary);margin-top:2px;cursor:pointer" class="sched-entity-link" data-eid="${item.entity_id}">${item.entity_name}</div>` : ""}
+                ${item.official_name ? `<div style="font-size:11px;color:#D97706;margin-top:1px">Contact: ${item.official_name}</div>` : ""}
+                ${item.vendor_name ? `<div style="font-size:11px;color:#059669;margin-top:1px">Vendor: ${item.vendor_name}</div>` : ""}
                 ${item.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${item.notes}</div>` : ""}
               </div>
               <button class="sched-edit-btn" data-sid="${item.id}" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:11px;padding:4px;font-weight:600" title="Edit">Edit</button>

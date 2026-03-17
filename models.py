@@ -141,6 +141,11 @@ class VendorCreate(BaseModel):
     bluebook_status: Optional[str] = "not_listed"
     ces_contract_category: Optional[str] = None
     source: Optional[str] = None
+    pipeline_status: Optional[str] = None
+    assigned_rm: Optional[str] = None
+    notes: Optional[str] = None
+    next_action_date: Optional[date] = None
+    next_action_type: Optional[str] = None
 class VendorListItem(BaseModel):
     vendor_id: int
     vendor_name: str
@@ -148,6 +153,12 @@ class VendorListItem(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     bluebook_status: Optional[str] = None
+    pipeline_status: Optional[str] = None
+    assigned_rm: Optional[str] = None
+    next_action_date: Optional[date] = None
+    next_action_type: Optional[str] = None
+    total_spend: Optional[float] = None
+    jurisdictions: Optional[str] = None
 class VendorDetail(VendorListItem):
     website: Optional[str] = None
     address: Optional[str] = None
@@ -159,6 +170,13 @@ class VendorJurisdictionCreate(BaseModel):
     relationship_type: Optional[str] = "current_vendor"
     annual_spend: Optional[float] = None
     source: Optional[str] = None
+class VendorPipelineUpdate(BaseModel):
+    pipeline_status: Optional[str] = None
+    assigned_rm: Optional[str] = None
+    notes: Optional[str] = None
+    next_action_date: Optional[date] = None
+    next_action_type: Optional[str] = None
+
 # ── Morning Brief ──
 
 class PipelineCount(BaseModel):

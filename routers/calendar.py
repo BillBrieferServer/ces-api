@@ -206,10 +206,14 @@ async def get_schedule(
         text(
             "SELECT si.id, si.title, si.item_date, si.item_time, si.end_date, si.item_type,"
             " si.source_event_id, si.entity_id, si.entity_name, si.notes, si.completed,"
-            " cs.org_abbrev, cs.color as org_color, e.location as event_location, si.assigned_to"
+            " cs.org_abbrev, cs.color as org_color, e.location as event_location, si.assigned_to,"
+            " si.official_id, o.name as official_name,"
+            " si.vendor_id, v.vendor_name"
             " FROM schedule_items si"
             " LEFT JOIN events e ON e.id = si.source_event_id"
             " LEFT JOIN calendar_sources cs ON cs.id = e.source_id"
+            " LEFT JOIN public.officials o ON o.official_id = si.official_id"
+            " LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id"
             " WHERE " + where +
             " ORDER BY"
             " CASE WHEN si.item_date < :today THEN 0 ELSE 1 END,"
@@ -236,6 +240,10 @@ async def get_schedule(
             "org_color": r["org_color"],
             "location": r["event_location"],
             "assigned_to": r["assigned_to"],
+            "official_id": r["official_id"],
+            "official_name": r["official_name"],
+            "vendor_id": r["vendor_id"],
+            "vendor_name": r["vendor_name"],
         }
         for r in rows
     ]
@@ -331,16 +339,33 @@ async def create_custom_schedule_item(
     notes: Optional[str] = Query(None),
     assigned_to: Optional[str] = Query(None),
     item_time: Optional[str] = Query(None),
+    entity_id: Optional[int] = Query(None),
+    official_id: Optional[int] = Query(None),
+    vendor_id: Optional[int] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a custom schedule item (not linked to an entity or event)."""
+    """Create a custom schedule item with optional entity/official/vendor links."""
+    # Look up entity name if entity_id provided
+    entity_name = None
+    if entity_id:
+        r = await db.execute(text("SELECT name FROM common.jurisdictions WHERE jurisdiction_id = :id"), {"id": entity_id})
+        row = r.first()
+        if row:
+            entity_name = row[0]
+
     result = await db.execute(
         text("""
-            INSERT INTO schedule_items (title, item_date, item_time, item_type, notes, assigned_to)
-            VALUES (:title, :item_date, :item_time, :item_type, :notes, :assigned_to)
+            INSERT INTO schedule_items (title, item_date, item_time, item_type, notes, assigned_to,
+                                        entity_id, entity_name, official_id, vendor_id)
+            VALUES (:title, :item_date, :item_time, :item_type, :notes, :assigned_to,
+                    :entity_id, :entity_name, :official_id, :vendor_id)
             RETURNING id
         """),
-        {"title": title, "item_date": date.fromisoformat(item_date), "item_time": time.fromisoformat(item_time) if item_time else None, "item_type": item_type, "notes": notes, "assigned_to": assigned_to or None},
+        {"title": title, "item_date": date.fromisoformat(item_date),
+         "item_time": time.fromisoformat(item_time) if item_time else None,
+         "item_type": item_type, "notes": notes, "assigned_to": assigned_to or None,
+         "entity_id": entity_id, "entity_name": entity_name,
+         "official_id": official_id, "vendor_id": vendor_id},
     )
     await db.commit()
     row = result.first()
@@ -356,12 +381,14 @@ async def update_schedule_item(
     notes: Optional[str] = None,
     assigned_to: Optional[str] = None,
     item_time: Optional[str] = None,
+    official_id: Optional[int] = None,
+    vendor_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a schedule item. When marking complete, clears entity next_action fields."""
+    """Update a schedule item. When marking complete, clears entity/vendor next_action fields."""
     # Check item exists
     result = await db.execute(
-        text("SELECT id, entity_id, completed FROM schedule_items WHERE id = :id"),
+        text("SELECT id, entity_id, vendor_id, completed FROM schedule_items WHERE id = :id"),
         {"id": item_id},
     )
     item = result.mappings().first()
@@ -395,6 +422,14 @@ async def update_schedule_item(
         set_parts.append("item_time = :item_time")
         params["item_time"] = time.fromisoformat(item_time) if item_time else None
 
+    if official_id is not None:
+        set_parts.append("official_id = :official_id")
+        params["official_id"] = official_id if official_id else None
+
+    if vendor_id is not None:
+        set_parts.append("vendor_id = :vendor_id")
+        params["vendor_id"] = vendor_id if vendor_id else None
+
     set_clause = ", ".join(set_parts)
     sql = "UPDATE schedule_items SET " + set_clause + " WHERE id = :id"
     await db.execute(text(sql), params)
@@ -408,6 +443,17 @@ async def update_schedule_item(
                 " WHERE jurisdiction_id = :jid"
             ),
             {"jid": item["entity_id"]},
+        )
+
+    # When marking complete and linked to a vendor, clear vendor next_action fields
+    if completed and item["vendor_id"]:
+        await db.execute(
+            text(
+                "UPDATE ces.vendors"
+                " SET next_action_date = NULL, next_action_type = NULL"
+                " WHERE vendor_id = :vid"
+            ),
+            {"vid": item["vendor_id"]},
         )
 
     await db.commit()

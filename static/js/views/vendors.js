@@ -1,279 +1,232 @@
-import { api, phoneLink, emailLink, badge, showToast } from "../app.js";
+import { api, navigate, phoneLink, emailLink, badge, formatDate, showToast } from "../app.js";
+
+const PIPELINE_COLORS = {
+  prospect: { bg: "rgba(100,116,139,0.2)", color: "#64748B" },
+  contacted: { bg: "rgba(37,99,235,0.2)", color: "#2563EB" },
+  pitched: { bg: "rgba(109,40,217,0.2)", color: "#6D28D9" },
+  onboarding: { bg: "rgba(217,119,6,0.2)", color: "#D97706" },
+  active: { bg: "rgba(5,150,105,0.2)", color: "#059669" },
+};
+
+const ACTION_TYPES = ["Visit", "Call", "Present", "Follow-up", "Send info"];
+
+let currentTab = "pipeline";
+let currentFilter = "";
 
 export async function renderVendors(el) {
-  el.innerHTML = `
-    <input class="search-bar" type="search" placeholder="Search vendors..." id="v-search">
-    <div class="filter-row">
-      <select class="filter-select" id="v-status">
-        <option value="">All Statuses</option>
-        <option value="not_listed">Not Listed</option>
-        <option value="recruited">Recruited</option>
-        <option value="onboarded">Onboarded</option>
-        <option value="active">Active</option>
-      </select>
-      <select class="filter-select" id="v-sort">
-        <option value="spend">Sort: $ Amount</option>
-        <option value="name">Sort: Name</option>
-        <option value="category">Sort: Category</option>
-        <option value="entity">Sort: Entity</option>
-      </select>
-      <button class="btn btn-primary btn-sm" id="add-vendor-btn">+ Add Vendor</button>
-    </div>
-    <div class="filter-row">
-      <span id="v-count" style="font-size:0.8rem;color:var(--text-dim)"></span>
-    </div>
-    <div id="v-list"><div class="spinner"></div></div>
-  `;
+  function render(data) {
+    let html = "";
 
-  const listEl = el.querySelector("#v-list");
+    // Tab bar
+    html += `<div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid rgba(255,255,255,0.1)">
+      <button class="vtab" data-tab="pipeline" style="flex:1;padding:10px;font-size:14px;font-weight:600;border:none;cursor:pointer;
+        background:${currentTab === 'pipeline' ? 'var(--accent)' : 'transparent'};
+        color:${currentTab === 'pipeline' ? '#fff' : 'var(--text-dim)'};
+        border-radius:8px 8px 0 0">Pipeline</button>
+      <button class="vtab" data-tab="intelligence" style="flex:1;padding:10px;font-size:14px;font-weight:600;border:none;cursor:pointer;
+        background:${currentTab === 'intelligence' ? 'var(--accent)' : 'transparent'};
+        color:${currentTab === 'intelligence' ? '#fff' : 'var(--text-dim)'};
+        border-radius:8px 8px 0 0">All Vendors</button>
+    </div>`;
 
-  async function load() {
-    const params = new URLSearchParams();
-    const name = el.querySelector("#v-search").value.trim();
-    const status = el.querySelector("#v-status").value;
-    if (name) params.set("name", name);
-    if (status) params.set("bluebook_status", status);
-
-    const data = await api(`/vendors?${params}`);
-    if (data.length === 0) {
-      listEl.innerHTML = `<div class="empty">No vendors found</div>`;
-      return;
-    }
-
-    const sortBy = el.querySelector("#v-sort").value;
-    if (sortBy === "spend") {
-      data.sort((a, b) => (b.total_spend || 0) - (a.total_spend || 0));
-    } else if (sortBy === "name") {
-      data.sort((a, b) => (a.vendor_name || "").localeCompare(b.vendor_name || ""));
-    } else if (sortBy === "category") {
-      data.sort((a, b) => (a.ces_contract_category || "zzz").localeCompare(b.ces_contract_category || "zzz") || (b.total_spend || 0) - (a.total_spend || 0));
-    } else if (sortBy === "entity") {
-      data.sort((a, b) => (a.jurisdictions || "zzz").localeCompare(b.jurisdictions || "zzz") || (b.total_spend || 0) - (a.total_spend || 0));
-    }
-    el.querySelector("#v-count").textContent = data.length + " vendors" + (data.length >= 200 ? " (showing first 200)" : "");
-    listEl.innerHTML = data.map(v => {
-      const spend = v.total_spend ? "$" + Number(v.total_spend).toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 0}) : "";
-      return `
-      <div class="card" style="padding:14px 16px;cursor:pointer" onclick="window.__openVendor(${v.vendor_id})">
-        <div style="display:flex;justify-content:space-between;align-items:start">
-          <div style="font-weight:600;font-size:0.95rem;margin-bottom:2px">${v.vendor_name}</div>
-          ${spend ? `<div style="font-weight:600;font-size:0.85rem;color:var(--accent)">${spend}</div>` : ""}
-        </div>
-        ${v.contact_name ? `<div style="color:var(--text-dim);font-size:0.8rem">${v.contact_name}</div>` : ""}
-        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
-          ${v.phone ? phoneLink(v.phone) : ""}
-          ${v.email ? emailLink(v.email) : ""}
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
-          ${badge(v.bluebook_status)}
-          ${v.ces_contract_category ? `<span class="badge" style="background:#e0e7ff;color:#3730a3">${v.ces_contract_category}</span>` : ""}
-        </div>
-        ${v.jurisdictions || v.source ? `<div style="font-size:0.75rem;color:var(--text-dim);margin-top:4px">
-          ${v.jurisdictions ? "\u{1F3DB} " + v.jurisdictions : ""}${v.jurisdictions && v.source ? " &middot; " : ""}${v.source ? "Source: " + v.source : ""}
-        </div>` : ""}
+    if (currentTab === "pipeline") {
+      // Pipeline filters
+      html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        ${["", "prospect", "contacted", "pitched", "onboarding", "active"].map(s => {
+          const label = s ? s.charAt(0).toUpperCase() + s.slice(1) : "All";
+          const isActive = currentFilter === s;
+          const c = PIPELINE_COLORS[s] || { bg: "rgba(255,255,255,0.08)", color: "var(--text-dim)" };
+          return `<button class="pf-btn" data-status="${s}" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid ${isActive ? c.color : 'transparent'};background:${isActive ? c.bg : 'rgba(255,255,255,0.06)'};color:${isActive ? c.color : 'var(--text-dim)'}">${label}</button>`;
+        }).join("")}
       </div>`;
-    }).join("");
+
+      const pipeline = data.filter(v => {
+        if (!v.pipeline_status) return false;
+        if (currentFilter && v.pipeline_status !== currentFilter) return false;
+        return true;
+      });
+
+      if (pipeline.length === 0) {
+        html += `<div class="card"><div class="empty">No vendors in pipeline${currentFilter ? ` with status "${currentFilter}"` : ''}. Add vendors from the All Vendors tab.</div></div>`;
+      } else {
+        pipeline.forEach(v => {
+          const pc = PIPELINE_COLORS[v.pipeline_status] || PIPELINE_COLORS.prospect;
+          html += `<div class="list-item" data-vid="${v.vendor_id}" style="cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div style="flex:1;min-width:0">
+                <div class="list-item-title">${v.vendor_name}</div>
+                <div class="list-item-meta" style="margin-top:4px">
+                  <span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:12px;background:${pc.bg};color:${pc.color}">${v.pipeline_status}</span>
+                  ${v.assigned_rm ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:rgba(234,179,8,0.2);color:#EAB308">${v.assigned_rm}</span>` : ''}
+                  ${v.total_spend ? `<span style="font-size:12px;color:var(--text-dim)">$${Math.round(v.total_spend).toLocaleString()}</span>` : ''}
+                </div>
+                ${v.next_action_date ? `<div style="font-size:11px;color:var(--accent);margin-top:4px">${v.next_action_type || 'Action'}: ${formatDate(v.next_action_date)}</div>` : ''}
+                ${v.jurisdictions ? `<div style="font-size:11px;color:var(--text-dim);margin-top:2px">${v.jurisdictions}</div>` : ''}
+              </div>
+            </div>
+          </div>`;
+        });
+      }
+    } else {
+      // Intelligence view — all vendors search
+      html += `<input class="search-bar" type="search" placeholder="Search vendors..." id="v-search" style="margin-bottom:8px">`;
+      html += `<div id="v-intel-list">`;
+      data.forEach(v => {
+        html += `<div class="list-item" style="display:flex;justify-content:space-between;align-items:center">
+          <div style="flex:1;min-width:0;cursor:pointer" data-vid="${v.vendor_id}">
+            <div class="list-item-title">${v.vendor_name}</div>
+            <div class="list-item-meta">
+              ${v.total_spend ? `<span style="font-size:12px">$${Math.round(v.total_spend).toLocaleString()}</span>` : ''}
+              ${v.jurisdictions ? `<span style="font-size:11px;color:var(--text-dim)">${v.jurisdictions}</span>` : ''}
+            </div>
+          </div>
+          ${!v.pipeline_status ? `<button class="btn btn-sm add-pipeline-btn" data-vid="${v.vendor_id}" style="padding:4px 10px;font-size:11px;min-height:28px;background:rgba(5,150,105,0.15);color:#059669;border:1px solid #059669;border-radius:6px;flex-shrink:0;margin-left:8px">+ Pipeline</button>` : `<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:12px;background:${(PIPELINE_COLORS[v.pipeline_status]||PIPELINE_COLORS.prospect).bg};color:${(PIPELINE_COLORS[v.pipeline_status]||PIPELINE_COLORS.prospect).color}">${v.pipeline_status}</span>`}
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    el.innerHTML = html;
+
+    // Tab handlers
+    el.querySelectorAll(".vtab").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        currentTab = btn.dataset.tab;
+        const d = await loadData();
+        render(d);
+      });
+    });
+
+    // Pipeline filter handlers
+    el.querySelectorAll(".pf-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        currentFilter = btn.dataset.status;
+        const d = await loadData();
+        render(d);
+      });
+    });
+
+    // Add to pipeline buttons
+    el.querySelectorAll(".add-pipeline-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await api(`/vendors/${btn.dataset.vid}/pipeline`, { method: "PATCH", body: { pipeline_status: "prospect" } });
+        showToast("Added to pipeline");
+        const d = await loadData();
+        render(d);
+      });
+    });
+
+    // Vendor detail click
+    el.querySelectorAll("[data-vid]").forEach(item => {
+      if (item.classList.contains("add-pipeline-btn")) return;
+      item.addEventListener("click", () => {
+        showVendorDetail(el, parseInt(item.dataset.vid));
+      });
+    });
+
+    // Search in intelligence view
+    const searchEl = el.querySelector("#v-search");
+    if (searchEl) {
+      let debounce;
+      searchEl.addEventListener("input", () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(async () => {
+          const d = await loadData(searchEl.value.trim());
+          // Re-render just the list portion
+          render(d);
+          // Restore search value
+          const newSearch = el.querySelector("#v-search");
+          if (newSearch) { newSearch.value = searchEl.value; newSearch.focus(); }
+        }, 300);
+      });
+    }
   }
 
-  let debounce;
-  el.querySelector("#v-search").addEventListener("input", () => {
-    clearTimeout(debounce);
-    debounce = setTimeout(load, 300);
-  });
-  el.querySelector("#v-status").addEventListener("change", load);
-  el.querySelector("#v-sort").addEventListener("change", load);
+  async function loadData(searchName) {
+    const params = new URLSearchParams();
+    if (currentTab === "pipeline") {
+      params.set("pipeline", "active");
+    }
+    if (searchName) params.set("name", searchName);
+    return await api(`/vendors?${params}`);
+  }
 
-  el.querySelector("#add-vendor-btn").addEventListener("click", () => showAddVendorModal(el, load));
-
-  window.__openVendor = (id) => showVendorDetailModal(id, load);
-
-  load();
-}
-
-async function showVendorDetailModal(vendorId, reload) {
-  const v = await api(`/vendors/${vendorId}`);
-
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Vendor Details</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Vendor Name *</label>
-        <input class="form-input" id="vd-name" value="${v.vendor_name || ""}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Contact Name</label>
-        <input class="form-input" id="vd-contact" value="${v.contact_name || ""}">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="form-group">
-          <label class="form-label">Phone</label>
-          <input class="form-input" id="vd-phone" type="tel" value="${v.phone || ""}">
+  async function showVendorDetail(parentEl, vendorId) {
+    const v = await api(`/vendors/${vendorId}`);
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>${v.vendor_name}</h2>
+          <button class="modal-close">&times;</button>
         </div>
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <input class="form-input" id="vd-email" type="email" value="${v.email || ""}">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Website</label>
-        <input class="form-input" id="vd-website" value="${v.website || ""}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Address</label>
-        <input class="form-input" id="vd-address" value="${v.address || ""}">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="form-group">
-          <label class="form-label">BlueBook Status</label>
-          <select class="form-select" id="vd-bb">
-            <option value="not_listed" ${v.bluebook_status === "not_listed" ? "selected" : ""}>Not Listed</option>
-            <option value="recruited" ${v.bluebook_status === "recruited" ? "selected" : ""}>Recruited</option>
-            <option value="onboarded" ${v.bluebook_status === "onboarded" ? "selected" : ""}>Onboarded</option>
-            <option value="active" ${v.bluebook_status === "active" ? "selected" : ""}>Active</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">CES Contract Category</label>
-          <select class="form-select" id="vd-cat">
-            <option value="" ${!v.ces_contract_category ? "selected" : ""}>-- None --</option>
-            <option value="Construction & Building Services" ${v.ces_contract_category === "Construction & Building Services" ? "selected" : ""}>Construction & Building</option>
-            <option value="Technology & IT" ${v.ces_contract_category === "Technology & IT" ? "selected" : ""}>Technology & IT</option>
-            <option value="Fleet & Vehicles" ${v.ces_contract_category === "Fleet & Vehicles" ? "selected" : ""}>Fleet & Vehicles</option>
-            <option value="Office Supplies & Furniture" ${v.ces_contract_category === "Office Supplies & Furniture" ? "selected" : ""}>Office Supplies & Furniture</option>
-            <option value="Janitorial & Maintenance" ${v.ces_contract_category === "Janitorial & Maintenance" ? "selected" : ""}>Janitorial & Maintenance</option>
-            <option value="Medical & Health" ${v.ces_contract_category === "Medical & Health" ? "selected" : ""}>Medical & Health</option>
-            <option value="Public Safety & Security" ${v.ces_contract_category === "Public Safety & Security" ? "selected" : ""}>Public Safety & Security</option>
-            <option value="Food Services" ${v.ces_contract_category === "Food Services" ? "selected" : ""}>Food Services</option>
-            <option value="Utility & Heavy Equipment" ${v.ces_contract_category === "Utility & Heavy Equipment" ? "selected" : ""}>Utility & Heavy Equipment</option>
-            <option value="Moving & Storage" ${v.ces_contract_category === "Moving & Storage" ? "selected" : ""}>Moving & Storage</option>
-            <option value="Educational Supplies" ${v.ces_contract_category === "Educational Supplies" ? "selected" : ""}>Educational Supplies</option>
-            <option value="Performing Arts" ${v.ces_contract_category === "Performing Arts" ? "selected" : ""}>Performing Arts</option>
-          </select>
+        <div class="card-row"><label>Total Spend</label><span>$${Math.round(v.total_spend || 0).toLocaleString()}</span></div>
+        ${v.jurisdictions ? `<div class="card-row"><label>Entities</label><span style="text-align:right;max-width:60%">${v.jurisdictions}</span></div>` : ''}
+        ${v.phone ? `<div class="card-row"><label>Phone</label><span>${v.phone}</span></div>` : ''}
+        ${v.email ? `<div class="card-row"><label>Email</label><span>${v.email}</span></div>` : ''}
+        ${v.website ? `<div class="card-row"><label>Website</label><a href="${v.website}" target="_blank" class="contact-link">${v.website}</a></div>` : ''}
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div style="font-weight:600;margin-bottom:8px">Pipeline</div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="vp-status">
+              <option value="">Not in pipeline</option>
+              ${["prospect","contacted","pitched","onboarding","active"].map(s =>
+                `<option value="${s}" ${v.pipeline_status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`
+              ).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assigned RM</label>
+            <select class="form-select" id="vp-rm">
+              <option value="">—</option>
+              <option value="Steve" ${v.assigned_rm === 'Steve' ? 'selected' : ''}>Steve</option>
+              <option value="Drew" ${v.assigned_rm === 'Drew' ? 'selected' : ''}>Drew</option>
+              <option value="Both" ${v.assigned_rm === 'Both' ? 'selected' : ''}>Both</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Next Action</label>
+            <div style="display:flex;gap:8px">
+              <input class="form-input" id="vp-action-date" type="date" value="${v.next_action_date || ''}" style="flex:1">
+              <select class="form-select" id="vp-action-type" style="flex:1">
+                <option value="">Type...</option>
+                ${ACTION_TYPES.map(t => `<option value="${t}" ${v.next_action_type === t ? 'selected' : ''}>${t}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="form-textarea" id="vp-notes" rows="3">${v.notes || ''}</textarea>
+          </div>
+          <button class="btn btn-primary btn-block" id="vp-save">Save</button>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Source</label>
-        <input class="form-input" id="vd-source" value="${v.source || ""}" readonly style="opacity:0.7">
-      </div>
-      ${v.jurisdictions ? `<div style="font-size:0.85rem;color:var(--text-dim);margin:8px 0;padding:8px 12px;background:var(--card-bg);border-radius:8px">
-        <strong>Entities:</strong> ${v.jurisdictions}${v.total_spend ? ` &mdash; $${Number(v.total_spend).toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 0})} total spend` : ""}
-      </div>` : ""}
-      <div style="display:flex;gap:10px;margin-top:4px">
-        <button class="btn btn-primary" style="flex:1" id="vd-save">Save Changes</button>
-        <button class="btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" id="vd-delete">Delete</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
+    `;
+    document.body.appendChild(overlay);
 
-  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+    overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
 
-  overlay.querySelector("#vd-delete").addEventListener("click", async () => {
-    if (!confirm("Delete this vendor? This cannot be undone.")) return;
-    await api(`/vendors/${vendorId}`, { method: "DELETE" });
-    overlay.remove();
-    showToast("Vendor deleted");
-    reload();
-  });
+    overlay.querySelector("#vp-save").addEventListener("click", async () => {
+      const body = {
+        pipeline_status: overlay.querySelector("#vp-status").value || null,
+        assigned_rm: overlay.querySelector("#vp-rm").value || null,
+        next_action_date: overlay.querySelector("#vp-action-date").value || null,
+        next_action_type: overlay.querySelector("#vp-action-type").value || null,
+        notes: overlay.querySelector("#vp-notes").value.trim() || null,
+      };
+      await api(`/vendors/${vendorId}/pipeline`, { method: "PATCH", body });
+      overlay.remove();
+      showToast("Vendor updated");
+      const d = await loadData();
+      render(d);
+    });
+  }
 
-  overlay.querySelector("#vd-save").addEventListener("click", async () => {
-    const body = {
-      vendor_name: overlay.querySelector("#vd-name").value.trim(),
-      contact_name: overlay.querySelector("#vd-contact").value.trim() || null,
-      phone: overlay.querySelector("#vd-phone").value.trim() || null,
-      email: overlay.querySelector("#vd-email").value.trim() || null,
-      website: overlay.querySelector("#vd-website").value.trim() || null,
-      address: overlay.querySelector("#vd-address").value.trim() || null,
-      bluebook_status: overlay.querySelector("#vd-bb").value,
-      ces_contract_category: overlay.querySelector("#vd-cat").value || null,
-      source: overlay.querySelector("#vd-source").value.trim() || null,
-    };
-    if (!body.vendor_name) { overlay.querySelector("#vd-name").focus(); return; }
-    await api(`/vendors/${vendorId}`, { method: "PUT", body });
-    overlay.remove();
-    showToast("Vendor updated");
-    reload();
-  });
-}
-
-function showAddVendorModal(parentEl, reload) {
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Add Vendor</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Vendor Name *</label>
-        <input class="form-input" id="v-name" placeholder="Company name">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Contact Name</label>
-        <input class="form-input" id="v-contact" placeholder="Sales rep name">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Phone</label>
-        <input class="form-input" id="v-phone" type="tel" placeholder="208-555-1234">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" id="v-email" type="email" placeholder="rep@company.com">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Website</label>
-        <input class="form-input" id="v-website" placeholder="https://...">
-      </div>
-      <div class="form-group">
-        <label class="form-label">BlueBook Status</label>
-        <select class="form-select" id="v-bb">
-          <option value="not_listed">Not Listed</option>
-          <option value="recruited">Recruited</option>
-          <option value="onboarded">Onboarded</option>
-          <option value="active">Active</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">CES Contract Category</label>
-        <input class="form-input" id="v-cat" placeholder="e.g. Office Supplies">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Source</label>
-        <input class="form-input" id="v-source" placeholder="e.g. Conference, Referral">
-      </div>
-      <button class="btn btn-primary btn-block" id="v-submit">Save Vendor</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-
-  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelector("#v-submit").addEventListener("click", async () => {
-    const name = overlay.querySelector("#v-name").value.trim();
-    if (!name) { overlay.querySelector("#v-name").focus(); return; }
-
-    const body = {
-      vendor_name: name,
-      contact_name: overlay.querySelector("#v-contact").value.trim() || null,
-      phone: overlay.querySelector("#v-phone").value.trim() || null,
-      email: overlay.querySelector("#v-email").value.trim() || null,
-      website: overlay.querySelector("#v-website").value.trim() || null,
-      bluebook_status: overlay.querySelector("#v-bb").value,
-      ces_contract_category: overlay.querySelector("#v-cat").value.trim() || null,
-      source: overlay.querySelector("#v-source").value.trim() || null,
-    };
-
-    await api("/vendors", { method: "POST", body });
-    overlay.remove();
-    showToast("Vendor added");
-    reload();
-  });
+  const data = await loadData();
+  render(data);
 }
