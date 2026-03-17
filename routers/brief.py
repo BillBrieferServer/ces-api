@@ -4,7 +4,7 @@ from sqlalchemy import text
 from datetime import date, timedelta
 
 from database import get_db
-from models import MorningBrief, InteractionListItem, PipelineCount
+from models import InteractionListItem, PipelineCount
 
 router = APIRouter(tags=["brief"])
 

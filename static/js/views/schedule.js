@@ -1,4 +1,4 @@
-import { api, formatDate, navigate, phoneLink, showToast } from "../app.js";
+import { api, formatDate, navigate, showToast } from "../app.js";
 
 const ROLLING = 90;
 const MO = ["January","February","March","April","May","June","July","August","September","October","November","December"];

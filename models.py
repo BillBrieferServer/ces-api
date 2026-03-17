@@ -152,7 +152,9 @@ class VendorListItem(BaseModel):
     vendor_id: int
     vendor_name: str
     contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
     phone: Optional[str] = None
+    cell_phone: Optional[str] = None
     email: Optional[str] = None
     bluebook_status: Optional[str] = None
     pipeline_status: Optional[str] = None
@@ -166,6 +168,7 @@ class VendorDetail(VendorListItem):
     address: Optional[str] = None
     ces_contract_category: Optional[str] = None
     source: Optional[str] = None
+    notes: Optional[str] = None
     created_date: Optional[datetime] = None
 class VendorJurisdictionCreate(BaseModel):
     jurisdiction_id: int
@@ -201,6 +204,7 @@ class MorningBrief(BaseModel):
     today: date
     schedule_overdue: list[dict] = []
     schedule_today: list[dict] = []
+    schedule_upcoming: list[dict] = []
     pending_followups: list[InteractionListItem] = []
     upcoming_actions: list[dict] = []
     pipeline_summary: list[PipelineCount] = []
