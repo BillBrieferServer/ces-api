@@ -224,7 +224,7 @@ export async function renderVendors(el) {
             <div class="form-group" style="flex:1">
               <label class="form-label">Assigned RM</label>
               <select class="form-select" id="nav-rm">
-                <option value="">—</option>
+                <option value="">â€”</option>
                 <option value="Steve">Steve</option>
                 <option value="Drew">Drew</option>
               </select>
