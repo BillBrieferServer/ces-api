@@ -778,6 +778,15 @@ async def login_submit(
 
         return response
 
+    # Check if user has MFA bypass enabled
+    if user.get('skip_mfa'):
+        log_login_attempt(email, True, None, "skip_mfa", user['id'], ip_address, user_agent)
+        log_security_event(user['id'], "login_success", "Login with MFA bypass", ip_address, user_agent)
+        response = RedirectResponse(url="/", status_code=302)
+        create_session_response(response, user['id'], 30, request)
+        update_user_last_login(user['id'])
+        return response
+
     # No valid session and not trusted device - proceed to MFA
     # Store pending login info
     response = RedirectResponse(url="/auth/login/verify", status_code=302)
