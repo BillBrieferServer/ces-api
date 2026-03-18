@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from datetime import date, timedelta
+from typing import Optional
 
 from database import get_db
 from models import InteractionListItem, PipelineCount
@@ -9,9 +10,27 @@ from models import InteractionListItem, PipelineCount
 router = APIRouter(tags=["brief"])
 
 
+def _get_user_name(request: Request) -> Optional[str]:
+    """Get logged-in user first name for brief filtering."""
+    try:
+        from auth import get_session_by_token_hash
+        from auth.auth_security import hash_token
+        token = request.cookies.get("bb_session")
+        if not token:
+            return None
+        session = get_session_by_token_hash(hash_token(token))
+        if not session:
+            return None
+        name = session.get("name", "")
+        return name.split()[0] if name else None
+    except Exception:
+        return None
+
+
 @router.get("/brief")
-async def morning_brief(db: AsyncSession = Depends(get_db)):
+async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     today = date.today()
+    user_first = _get_user_name(request)
 
     # Schedule: overdue items (before today, not completed)
     result = await db.execute(text("""
@@ -25,8 +44,10 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
         LEFT JOIN public.officials o ON o.official_id = si.official_id
         LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date < :today AND si.completed = false
+          AND (si.assigned_to IS NULL OR si.assigned_to = 'Both'
+               OR (:user_first IS NULL OR si.assigned_to = :user_first))
         ORDER BY si.item_date, si.item_time
-    """), {"today": today})
+    """), {"today": today, "user_first": user_first})
     schedule_overdue = [
         {**dict(r), "item_date": str(r["item_date"]),
          "item_time": str(r["item_time"]) if r["item_time"] else None,
@@ -46,8 +67,10 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
         LEFT JOIN public.officials o ON o.official_id = si.official_id
         LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date = :today AND si.completed = false
+          AND (si.assigned_to IS NULL OR si.assigned_to = 'Both'
+               OR (:user_first IS NULL OR si.assigned_to = :user_first))
         ORDER BY si.item_time, si.title
-    """), {"today": today})
+    """), {"today": today, "user_first": user_first})
     schedule_today = [
         {**dict(r), "item_date": str(r["item_date"]),
          "item_time": str(r["item_time"]) if r["item_time"] else None,
@@ -68,8 +91,10 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
         LEFT JOIN public.officials o ON o.official_id = si.official_id
         LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date > :today AND si.item_date <= :horizon AND si.completed = false
+          AND (si.assigned_to IS NULL OR si.assigned_to = 'Both'
+               OR (:user_first IS NULL OR si.assigned_to = :user_first))
         ORDER BY si.item_date, si.item_time
-    """), {"today": today, "horizon": today + timedelta(days=8)})
+    """), {"today": today, "horizon": today + timedelta(days=8), "user_first": user_first})
     schedule_upcoming = [
         {**dict(r), "item_date": str(r["item_date"]),
          "item_time": str(r["item_time"]) if r["item_time"] else None,
@@ -118,8 +143,10 @@ async def morning_brief(db: AsyncSession = Depends(get_db)):
         FROM ces.outreach_status os
         JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id
         WHERE os.next_action_date BETWEEN :today AND :end
+          AND (os.assigned_rm IS NULL
+               OR (:user_first IS NULL OR os.assigned_rm = :user_first))
         ORDER BY os.next_action_date
-    """), {"today": today, "end": today + timedelta(days=30)})
+    """), {"today": today, "end": today + timedelta(days=30), "user_first": user_first})
     actions = [dict(r) for r in result.mappings().all()]
 
     # Pipeline summary
