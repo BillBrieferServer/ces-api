@@ -1,4 +1,12 @@
 import { api, formatDate, navigate, showToast } from "../app.js";
+function fmt12(t) {
+  if (!t) return "";
+  const [h, m] = t.slice(0,5).split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr = h % 12 || 12;
+  return hr + ":" + String(m).padStart(2, "0") + " " + ampm;
+}
+
 
 const ROLLING = 90;
 const MO = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -210,7 +218,7 @@ export async function renderSchedule(el) {
                   <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${badge.bg};color:${badge.color}">${badge.label}</span>
                   ${item.org_abbrev ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:${item.org_color || '#475569'}22;color:${item.org_color || '#475569'}">${item.org_abbrev}</span>` : ""}
                 ${item.assigned_to ? `<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.2);color:#EAB308">${item.assigned_to}</span>` : ""}
-                  ${item.item_time ? `<span style="font-size:11px;color:var(--text-muted)">${item.item_time.slice(0,5)}</span>` : ""}
+                  ${item.item_time ? `<span style="font-size:11px;color:var(--text-muted)">${fmt12(item.item_time)}</span>` : ""}
                 <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
                 </div>
                 ${item.location ? `<div style="font-size:11px;margin-top:2px"><a href="https://maps.google.com/?q=${encodeURIComponent(item.location)}" target="_blank" style="color:var(--accent);text-decoration:none">${item.location}</a></div>` : ""}

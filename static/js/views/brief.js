@@ -1,4 +1,12 @@
 import { api, navigate, formatDate, badge, showToast } from "../app.js";
+function fmt12(t) {
+  if (!t) return "";
+  const [h, m] = t.slice(0,5).split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr = h % 12 || 12;
+  return hr + ":" + String(m).padStart(2, "0") + " " + ampm;
+}
+
 
 const SCHED_BADGE = {
   entity_visit: { label: "Visit", bg: "rgba(5,150,105,0.2)", color: "#059669" },
@@ -80,7 +88,7 @@ function schedCard(item, overdue, editing) {
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${b.bg};color:${b.color}">${b.label}</span>
           ${item.assigned_to ? `<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.2);color:#EAB308">${item.assigned_to}</span>` : ""}
-          ${item.item_time ? `<span style="font-size:11px;color:var(--text-muted)">${item.item_time.slice(0,5)}</span>` : ""}
+          ${item.item_time ? `<span style="font-size:11px;color:var(--text-muted)">${fmt12(item.item_time)}</span>` : ""}
           <span style="font-weight:600;font-size:13px;color:var(--text);${item.completed ? 'text-decoration:line-through;' : ''}">${item.title}</span>
         </div>
         ${item.location ? `<div style="font-size:11px;margin-top:2px"><a href="https://maps.google.com/?q=${encodeURIComponent(item.location)}" target="_blank" style="color:var(--accent);text-decoration:none">${item.location}</a></div>` : ""}
