@@ -30,9 +30,9 @@ export async function renderVendors(el) {
     </div>`;
 
     // Add vendor button
-    html += \`<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+    html += `<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
       <button class="btn btn-primary btn-sm" id="add-vendor-btn" style="padding:6px 14px;font-size:12px">+ Add Vendor</button>
-    </div>\`;
+    </div>`;
 
     if (currentTab === "pipeline") {
       // Pipeline filters
