@@ -320,7 +320,7 @@ async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str]
         """),
         {
             "title": evt["title"],
-            "item_date": evt["event_date"],
+            "item_date": str(evt["event_date"])[:10],
             "end_date": evt["end_date"],
             "source_event_id": evt["id"],
             "notes": notes or None,
