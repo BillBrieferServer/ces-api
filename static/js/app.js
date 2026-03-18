@@ -6,7 +6,7 @@ import { renderBrief } from "./views/brief.js?v=1773900004";
 import { renderJurisdictions } from "./views/jurisdictions.js?v=1773700012";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1773700008";
 import { renderOfficials } from "./views/officials.js?v=1773700008";
-import { renderVendors } from "./views/vendors.js?v=1773800004";
+import { renderVendors } from "./views/vendors.js?v=1773900005";
 import { renderMap } from "./views/map.js?v=1773700004";
 
 const content = document.getElementById("content");

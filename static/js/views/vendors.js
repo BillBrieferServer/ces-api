@@ -29,6 +29,11 @@ export async function renderVendors(el) {
         border-radius:8px 8px 0 0">All Vendors</button>
     </div>`;
 
+    // Add vendor button
+    html += \`<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn btn-primary btn-sm" id="add-vendor-btn" style="padding:6px 14px;font-size:12px">+ Add Vendor</button>
+    </div>\`;
+
     if (currentTab === "pipeline") {
       // Pipeline filters
       html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
@@ -89,6 +94,9 @@ export async function renderVendors(el) {
     el.innerHTML = html;
 
     // Tab handlers
+    const addBtn = el.querySelector("#add-vendor-btn");
+    if (addBtn) addBtn.addEventListener("click", () => showAddVendorModal(el));
+
     el.querySelectorAll(".vtab").forEach(btn => {
       btn.addEventListener("click", async () => {
         currentTab = btn.dataset.tab;
@@ -150,6 +158,120 @@ export async function renderVendors(el) {
     }
     if (searchName) params.set("name", searchName);
     return await api(`/vendors?${params}`);
+  }
+
+
+  function showAddVendorModal(parentEl) {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Add Vendor</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vendor Name *</label>
+          <input class="form-input" id="nav-name" placeholder="Company name">
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div style="font-weight:600;margin-bottom:8px">Contact Info</div>
+          <div class="form-group">
+            <label class="form-label">Contact Name</label>
+            <input class="form-input" id="nav-contact" placeholder="Contact name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Title</label>
+            <input class="form-input" id="nav-title" placeholder="Title / Role">
+          </div>
+          <div style="display:flex;gap:8px">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Work Phone</label>
+              <input class="form-input" id="nav-phone" type="tel" placeholder="Work phone">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Cell Phone</label>
+              <input class="form-input" id="nav-cell" type="tel" placeholder="Cell phone">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" id="nav-email" type="email" placeholder="Email">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <input class="form-input" id="nav-address" placeholder="Address">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Website</label>
+            <input class="form-input" id="nav-website" type="url" placeholder="https://...">
+          </div>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div style="font-weight:600;margin-bottom:8px">Pipeline</div>
+          <div style="display:flex;gap:8px">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Status</label>
+              <select class="form-select" id="nav-pipeline">
+                <option value="">None (Intelligence only)</option>
+                <option value="prospect">Prospect</option>
+                <option value="contacted">Contacted</option>
+                <option value="pitched">Pitched</option>
+                <option value="onboarding">Onboarding</option>
+                <option value="active">Active</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Assigned RM</label>
+              <select class="form-select" id="nav-rm">
+                <option value="">—</option>
+                <option value="Steve">Steve</option>
+                <option value="Drew">Drew</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="form-input" id="nav-notes" rows="2" placeholder="Notes..."></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+          <button class="btn btn-primary" id="nav-save">Save Vendor</button>
+        </div>
+      </div>
+    `;
+    parentEl.appendChild(overlay);
+
+    overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelector("#nav-save").addEventListener("click", async () => {
+      const name = overlay.querySelector("#nav-name").value.trim();
+      if (!name) { showToast("Vendor name is required"); return; }
+
+      const body = {
+        vendor_name: name,
+        contact_name: overlay.querySelector("#nav-contact").value.trim() || null,
+        contact_title: overlay.querySelector("#nav-title").value.trim() || null,
+        phone: overlay.querySelector("#nav-phone").value.trim() || null,
+        cell_phone: overlay.querySelector("#nav-cell").value.trim() || null,
+        email: overlay.querySelector("#nav-email").value.trim() || null,
+        address: overlay.querySelector("#nav-address").value.trim() || null,
+        website: overlay.querySelector("#nav-website").value.trim() || null,
+        pipeline_status: overlay.querySelector("#nav-pipeline").value || null,
+        assigned_rm: overlay.querySelector("#nav-rm").value || null,
+        notes: overlay.querySelector("#nav-notes").value.trim() || null,
+      };
+
+      try {
+        await api("/vendors", { method: "POST", body });
+        overlay.remove();
+        showToast("Vendor added");
+        renderVendors(el);
+      } catch (err) {
+        showToast("Error: " + err.message);
+      }
+    });
   }
 
   async function showVendorDetail(parentEl, vendorId) {
