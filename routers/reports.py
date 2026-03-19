@@ -3,10 +3,15 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from database import get_db
+
+from zoneinfo import ZoneInfo
+
+_MT = ZoneInfo('America/Boise')
+
 
 router = APIRouter(tags=["reports"])
 
@@ -54,7 +59,7 @@ async def run_report(
     county: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    today = date.today()
+    today = datetime.now(_MT).date()
     since = None
     if period != "all":
         since = today - timedelta(days=int(period))

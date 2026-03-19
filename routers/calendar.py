@@ -10,6 +10,11 @@ from pydantic import BaseModel
 
 from database import get_db
 
+from zoneinfo import ZoneInfo
+
+_MT = ZoneInfo('America/Boise')
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +38,7 @@ async def get_events(
     source: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    today = date.today()
+    today = datetime.now(_MT).date()
     start_date = date.fromisoformat(start) if start else today
     end_date = date.fromisoformat(end) if end else today + timedelta(days=365)
 
@@ -180,7 +185,7 @@ async def get_schedule(
     include_overdue: bool = True,
     db: AsyncSession = Depends(get_db),
 ):
-    today = date.today()
+    today = datetime.now(_MT).date()
     start_date = date.fromisoformat(start) if start else today
     end_date = date.fromisoformat(end) if end else today + timedelta(days=10)
 
@@ -485,7 +490,7 @@ async def remove_from_schedule(item_id: int, db: AsyncSession = Depends(get_db))
 
 @router.get("/calendar/stats")
 async def calendar_stats(db: AsyncSession = Depends(get_db)):
-    today = date.today()
+    today = datetime.now(_MT).date()
     ten_days = today + timedelta(days=10)
 
     next10 = await db.execute(

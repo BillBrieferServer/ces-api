@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from database import get_db
 from models import InteractionListItem, PipelineCount
+
+from zoneinfo import ZoneInfo
+
+_MT = ZoneInfo('America/Boise')
+
 
 router = APIRouter(tags=["brief"])
 
@@ -29,7 +34,7 @@ def _get_user_name(request: Request) -> Optional[str]:
 
 @router.get("/brief")
 async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
-    today = date.today()
+    today = datetime.now(_MT).date()
     user_first = _get_user_name(request)
 
     # Schedule: overdue items (before today, not completed)
