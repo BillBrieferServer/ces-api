@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Optional, List, Literal
 from pydantic import BaseModel
 
