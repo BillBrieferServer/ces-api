@@ -447,6 +447,21 @@ async def update_schedule_item(
     sql = "UPDATE schedule_items SET " + set_clause + " WHERE id = :id"
     await db.execute(text(sql), params)
 
+    # When notes updated and linked to a vendor, append to vendor notes
+    vid = vendor_id or item["vendor_id"]
+    if notes is not None and notes.strip() and vid:
+        stamp = datetime.now(_MT).strftime("%Y-%m-%d")
+        append_line = "\n" + f"[{stamp}] {notes.strip()}"
+        await db.execute(
+            text(
+                "UPDATE ces.vendors"
+                " SET notes = CASE WHEN notes IS NULL OR notes = '' THEN :note"
+                " ELSE notes || :append END"
+                " WHERE vendor_id = :vid"
+            ),
+            {"vid": vid, "note": notes.strip(), "append": append_line},
+        )
+
     # When marking complete and linked to an entity, clear entity next_action fields
     if completed and item["entity_id"]:
         await db.execute(
