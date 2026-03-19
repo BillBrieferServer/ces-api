@@ -45,7 +45,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date < :today AND si.completed = false
           AND (si.assigned_to IS NULL OR si.assigned_to = 'Both'
-               OR (:user_first IS NULL OR si.assigned_to = :user_first))
+               OR (CAST(:user_first AS TEXT) IS NULL OR si.assigned_to = :user_first))
         ORDER BY si.item_date, si.item_time
     """), {"today": today, "user_first": user_first})
     schedule_overdue = [
@@ -68,7 +68,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date = :today AND si.completed = false
           AND (si.assigned_to IS NULL OR si.assigned_to = 'Both'
-               OR (:user_first IS NULL OR si.assigned_to = :user_first))
+               OR (CAST(:user_first AS TEXT) IS NULL OR si.assigned_to = :user_first))
         ORDER BY si.item_time, si.title
     """), {"today": today, "user_first": user_first})
     schedule_today = [
@@ -92,7 +92,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         LEFT JOIN ces.vendors v ON v.vendor_id = si.vendor_id
         WHERE si.item_date > :today AND si.item_date <= :horizon AND si.completed = false
           AND (si.assigned_to IS NULL OR si.assigned_to = 'Both'
-               OR (:user_first IS NULL OR si.assigned_to = :user_first))
+               OR (CAST(:user_first AS TEXT) IS NULL OR si.assigned_to = :user_first))
         ORDER BY si.item_date, si.item_time
     """), {"today": today, "horizon": today + timedelta(days=8), "user_first": user_first})
     schedule_upcoming = [
@@ -144,7 +144,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id
         WHERE os.next_action_date BETWEEN :today AND :end
           AND (os.assigned_rm IS NULL
-               OR (:user_first IS NULL OR os.assigned_rm = :user_first))
+               OR (CAST(:user_first AS TEXT) IS NULL OR os.assigned_rm = :user_first))
         ORDER BY os.next_action_date
     """), {"today": today, "end": today + timedelta(days=30), "user_first": user_first})
     actions = [dict(r) for r in result.mappings().all()]
