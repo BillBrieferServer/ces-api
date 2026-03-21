@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 
 from database import get_db
-from models import InteractionListItem, PipelineCount
+from models import InteractionListItem
 
 from zoneinfo import ZoneInfo
 
@@ -184,13 +184,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     """), {"today": today, "end": today + timedelta(days=30), "user_first": user_first})
     actions = [dict(r) for r in result.mappings().all()]
 
-    # Pipeline summary
-    result = await db.execute(text("""
-        SELECT status, count(*) as count
-        FROM ces.outreach_status
-        GROUP BY status ORDER BY count DESC
-    """))
-    pipeline = [PipelineCount(**dict(r)) for r in result.mappings().all()]
+
 
     # Recent interactions (last 7 days)
     result = await db.execute(text("""
@@ -215,6 +209,5 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         "upcoming_events": upcoming_events,
         "pending_followups": pending_all,
         "upcoming_actions": actions,
-        "pipeline_summary": [p.dict() for p in pipeline],
-        "recent_interactions": [r.dict() for r in recent],
+                "recent_interactions": [r.dict() for r in recent],
     }

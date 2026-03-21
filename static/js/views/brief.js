@@ -235,22 +235,7 @@ export async function renderBrief(el) {
       });
     }
 
-    // Pipeline summary
-    html += `<div class="section-header">Pipeline</div><div class="stats-row">`;
-    const statusOrder = ["not_contacted", "contacted", "pitched", "presentation_scheduled", "board_approved", "active_member"];
-    const statusLabels = { not_contacted: "Not Contacted", contacted: "Contacted", pitched: "Pitched",
-      presentation_scheduled: "Scheduled", board_approved: "Approved", active_member: "Active" };
-    const statusMap = {};
-    data.pipeline_summary.forEach(p => statusMap[p.status] = p.count);
-    statusOrder.forEach(s => {
-      const count = statusMap[s] || 0;
-      if (count > 0 || s === "not_contacted") {
-        html += `<div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">${statusLabels[s] || s}</div></div>`;
-      }
-    });
-    html += `</div>`;
-
-    // Recent interactions
+// Recent interactions
     html += `<div class="section-header">Recent Activity</div>`;
     if (data.recent_interactions.length === 0) {
       html += `<div class="card"><div class="empty">No activity in the last 7 days</div></div>`;
