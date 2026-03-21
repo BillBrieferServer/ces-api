@@ -218,29 +218,7 @@ export async function renderBrief(el) {
       });
     }
 
-// Recent interactions
-    html += `<div class="section-header">Recent Activity</div>`;
-    if (data.recent_interactions.length === 0) {
-      html += `<div class="card"><div class="empty">No activity in the last 7 days</div></div>`;
-    } else {
-      data.recent_interactions.forEach(i => {
-        html += `<div class="list-item" data-jid="${i.jurisdiction_id}">
-          <div class="list-item-title">${i.jurisdiction_name || "Unknown"}</div>
-          <div class="list-item-sub">${i.summary || ""}</div>
-          <div class="list-item-meta">
-            ${badge(i.type)}
-            <span style="font-size:0.8rem">${formatDate(i.interaction_date)}</span>
-          </div>
-        </div>`;
-      });
-    }
-
-    el.innerHTML = html;
-    bindEvents();
-  }
-
-  function bindEvents() {
-    // Completion checkboxes
+// Completion checkboxes
     el.querySelectorAll(".brief-sched-check").forEach(chk => {
       chk.addEventListener("change", async () => {
         const sid = chk.dataset.sid;

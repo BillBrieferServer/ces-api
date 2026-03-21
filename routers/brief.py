@@ -175,20 +175,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 
-    # Recent interactions (last 7 days)
-    result = await db.execute(text("""
-        SELECT i.interaction_id, i.jurisdiction_id,
-               j.name as jurisdiction_name,
-               i.official_id, o.name as official_name,
-               i.interaction_date, i.type, i.summary,
-               i.follow_up_date, i.follow_up_note, i.completed
-        FROM ces.interactions i
-        LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = i.jurisdiction_id
-        LEFT JOIN public.officials o ON o.official_id = i.official_id
-        WHERE i.interaction_date >= :since
-        ORDER BY i.interaction_date DESC
-    """), {"since": today - timedelta(days=7)})
-    recent = [InteractionListItem(**dict(r)) for r in result.mappings().all()]
+
 
     return {
         "today": str(today),
@@ -197,5 +184,4 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         "schedule_upcoming": schedule_upcoming,
         "upcoming_events": upcoming_events,
         "pending_followups": pending_all,
-                "recent_interactions": [r.dict() for r in recent],
-    }
+                    }
