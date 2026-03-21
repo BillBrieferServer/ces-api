@@ -218,23 +218,6 @@ export async function renderBrief(el) {
       });
     }
 
-    // Upcoming actions
-    html += `<div class="section-header">Upcoming Actions</div>`;
-    if (data.upcoming_actions.length === 0) {
-      html += `<div class="card"><div class="empty">No actions in next 30 days</div></div>`;
-    } else {
-      data.upcoming_actions.forEach(b => {
-        html += `<div class="list-item" data-jid="${b.jurisdiction_id}">
-          <div class="list-item-title">${b.jurisdiction_name}</div>
-          <div class="list-item-meta">
-            ${badge(b.next_action_type || "Action")}
-            ${badge(b.status, "status")}
-            <span style="font-size:0.8rem">${formatDate(b.next_action_date)}</span>
-          </div>
-        </div>`;
-      });
-    }
-
 // Recent interactions
     html += `<div class="section-header">Recent Activity</div>`;
     if (data.recent_interactions.length === 0) {

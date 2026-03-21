@@ -171,18 +171,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     pending_all = interaction_followups + vendor_followups
     pending_all.sort(key=lambda x: (x["sort_name"].lower(), x["sort_date"]))
 
-    # Upcoming board meeting targets (next 30 days)
-    result = await db.execute(text("""
-        SELECT os.jurisdiction_id, j.name as jurisdiction_name,
-               os.next_action_date, os.next_action_type, os.status, os.assigned_rm, os.notes
-        FROM ces.outreach_status os
-        JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id
-        WHERE os.next_action_date BETWEEN :today AND :end
-          AND (os.assigned_rm IS NULL
-               OR (CAST(:user_first AS TEXT) IS NULL OR os.assigned_rm = :user_first))
-        ORDER BY os.next_action_date
-    """), {"today": today, "end": today + timedelta(days=30), "user_first": user_first})
-    actions = [dict(r) for r in result.mappings().all()]
+
 
 
 
@@ -208,6 +197,5 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         "schedule_upcoming": schedule_upcoming,
         "upcoming_events": upcoming_events,
         "pending_followups": pending_all,
-        "upcoming_actions": actions,
                 "recent_interactions": [r.dict() for r in recent],
     }
