@@ -185,20 +185,36 @@ export async function renderBrief(el) {
       });
     }
 
-    // Pending follow-ups
-    html += `<div class="section-header">Pending Follow-ups</div>`;
+    // Pending follow-ups (entities + vendors, full week)
+    html += `<div class="section-header">Follow-ups This Week</div>`;
     if (data.pending_followups.length === 0) {
-      html += `<div class="card"><div class="empty">No pending follow-ups</div></div>`;
+      html += `<div class="card"><div class="empty">No follow-ups this week</div></div>`;
     } else {
+      const today = new Date(data.today);
       data.pending_followups.forEach(f => {
-        html += `<div class="list-item" data-jid="${f.jurisdiction_id}">
-          <div class="list-item-title">${f.jurisdiction_name || "Unknown"}</div>
-          <div class="list-item-sub">${f.follow_up_note || f.summary || ""}</div>
-          <div class="list-item-meta">
-            ${badge(f.type)}
-            <span style="color:var(--yellow);font-size:0.8rem">${formatDate(f.follow_up_date)}</span>
-          </div>
-        </div>`;
+        const fDate = new Date(f.follow_up_date);
+        const isOverdue = fDate < today;
+        const dateColor = isOverdue ? "var(--red, #EF4444)" : "var(--yellow)";
+        const overdueTag = isOverdue ? ` <span style="color:var(--red, #EF4444);font-size:0.7rem;font-weight:600">OVERDUE</span>` : "";
+        if (f.source === "vendor") {
+          html += `<div class="list-item" style="cursor:pointer" onclick="window.location.hash='#vendors/${f.vendor_id}'">
+            <div class="list-item-title">${f.vendor_name || "Unknown Vendor"} <span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(5,150,105,0.2);color:#059669">Vendor</span></div>
+            <div class="list-item-sub">${f.notes || ""}</div>
+            <div class="list-item-meta">
+              ${badge(f.next_action_type || "Follow-up")}
+              <span style="color:${dateColor};font-size:0.8rem">${formatDate(f.follow_up_date)}</span>${overdueTag}
+            </div>
+          </div>`;
+        } else {
+          html += `<div class="list-item" data-jid="${f.jurisdiction_id}">
+            <div class="list-item-title">${f.jurisdiction_name || "Unknown"} <span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(37,99,235,0.2);color:#2563EB">Entity</span></div>
+            <div class="list-item-sub">${f.follow_up_note || f.summary || ""}</div>
+            <div class="list-item-meta">
+              ${badge(f.type)}
+              <span style="color:${dateColor};font-size:0.8rem">${formatDate(f.follow_up_date)}</span>${overdueTag}
+            </div>
+          </div>`;
+        }
       });
     }
 

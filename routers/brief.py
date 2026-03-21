@@ -126,7 +126,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     ]
 
 
-# Pending follow-ups (follow_up_date <= today, not completed)
+# Pending follow-ups: interactions + vendor next actions, full week window
     result = await db.execute(text("""
         SELECT i.interaction_id, i.jurisdiction_id,
                j.name as jurisdiction_name,
@@ -136,10 +136,40 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         FROM ces.interactions i
         LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = i.jurisdiction_id
         LEFT JOIN public.officials o ON o.official_id = i.official_id
-        WHERE i.follow_up_date <= :today AND i.completed = false
+        WHERE i.follow_up_date <= :week AND i.completed = false
         ORDER BY i.follow_up_date
-    """), {"today": today})
-    pending = [InteractionListItem(**dict(r)) for r in result.mappings().all()]
+    """), {"week": today + timedelta(days=7)})
+    interaction_followups = [
+        {**InteractionListItem(**dict(r)).dict(), "source": "entity",
+         "sort_name": (dict(r).get("jurisdiction_name") or ""),
+         "sort_date": str(dict(r).get("follow_up_date") or "")}
+        for r in result.mappings().all()
+    ]
+
+    # Vendor follow-ups (next_action_date within the week)
+    result = await db.execute(text("""
+        SELECT v.vendor_id, v.vendor_name, v.next_action_date, v.next_action_type,
+               v.pipeline_status, v.notes, v.contact_name
+        FROM ces.vendors v
+        WHERE v.next_action_date <= :week AND v.next_action_date IS NOT NULL
+        ORDER BY v.next_action_date
+    """), {"week": today + timedelta(days=7)})
+    vendor_followups = [
+        {"vendor_id": r["vendor_id"], "vendor_name": r["vendor_name"],
+         "next_action_date": str(r["next_action_date"]),
+         "next_action_type": r["next_action_type"],
+         "pipeline_status": r["pipeline_status"], "notes": r["notes"],
+         "contact_name": r["contact_name"],
+         "source": "vendor",
+         "sort_name": (r["vendor_name"] or ""),
+         "sort_date": str(r["next_action_date"] or ""),
+         "follow_up_date": str(r["next_action_date"])}
+        for r in result.mappings().all()
+    ]
+
+    # Combine and sort by name, then date
+    pending_all = interaction_followups + vendor_followups
+    pending_all.sort(key=lambda x: (x["sort_name"].lower(), x["sort_date"]))
 
     # Upcoming board meeting targets (next 30 days)
     result = await db.execute(text("""
@@ -183,7 +213,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         "schedule_today": schedule_today,
         "schedule_upcoming": schedule_upcoming,
         "upcoming_events": upcoming_events,
-        "pending_followups": [p.dict() for p in pending],
+        "pending_followups": pending_all,
         "upcoming_actions": actions,
         "pipeline_summary": [p.dict() for p in pipeline],
         "recent_interactions": [r.dict() for r in recent],
