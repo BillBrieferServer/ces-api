@@ -218,6 +218,8 @@ export async function renderBrief(el) {
       });
     }
 
+    el.innerHTML = html;
+
 // Completion checkboxes
     el.querySelectorAll(".brief-sched-check").forEach(chk => {
       chk.addEventListener("change", async () => {

@@ -126,7 +126,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     ]
 
 
-# Pending follow-ups: interactions + vendor next actions, full week window
+    # Pending follow-ups: interactions + vendor next actions, full week window
     result = await db.execute(text("""
         SELECT i.interaction_id, i.jurisdiction_id,
                j.name as jurisdiction_name,
