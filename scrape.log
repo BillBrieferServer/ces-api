@@ -14,3 +14,19 @@ Sources: 2
   Upserted 529 events
 
 === Done. 529 events processed. ===
+=== CES Calendar Scraper ===
+Date: 2026-03-21 13:00
+Sources: 2
+
+[AIC] Association of Idaho Cities
+  URL: https://idahocities.org/events/event_list.asp
+  Parser: manual
+  [SKIP] Manual source, no auto-scrape
+
+[IAC] Idaho Association of Counties
+  URL: https://idcounties.org/events-training/calendar/
+  Parser: iac
+  Parsed 534 events from IAC
+  Upserted 534 events
+
+=== Done. 534 events processed. ===

@@ -325,8 +325,8 @@ async def add_to_schedule(event_id: int = Query(...), assigned_to: Optional[str]
         """),
         {
             "title": evt["title"],
-            "item_date": str(evt["event_date"])[:10],
-            "end_date": evt["end_date"],
+            "item_date": evt["event_date"] if isinstance(evt["event_date"], date) else date.fromisoformat(str(evt["event_date"])[:10]),
+            "end_date": date.fromisoformat(str(evt["end_date"])[:10]) if evt["end_date"] and not isinstance(evt["end_date"], date) else evt["end_date"],
             "source_event_id": evt["id"],
             "notes": notes or None,
             "assigned_to": assigned_to or None,
