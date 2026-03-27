@@ -4,7 +4,7 @@ from sqlalchemy import text
 from typing import Optional
 
 from database import get_db
-from models import JurisdictionListItem, JurisdictionDetail, ProfileDetail, ProfileUpdate, OutreachDetail, OfficialSummary, InteractionSummary, VendorSummary
+from models import JurisdictionListItem, JurisdictionDetail, ProfileDetail, ProfileUpdate, OutreachDetail, OfficialSummary, HistoryEntry, VendorSummary
 
 router = APIRouter(prefix="/jurisdictions", tags=["jurisdictions"])
 
@@ -115,16 +115,15 @@ async def get_jurisdiction(jurisdiction_id: int, db: AsyncSession = Depends(get_
     """), {"jid": jurisdiction_id})
     data["staff"] = [OfficialSummary(**dict(r)) for r in result.mappings().all()]
 
-    # Interactions
+    # History (auto-logged from outreach changes)
     result = await db.execute(text("""
-        SELECT i.interaction_id, i.interaction_date, i.type, i.summary,
-               o.name as official_name, i.follow_up_date, i.completed
-        FROM ces.interactions i
-        LEFT JOIN public.officials o ON o.official_id = i.official_id
-        WHERE i.jurisdiction_id = :jid
-        ORDER BY i.interaction_date DESC
+        SELECT interaction_id, interaction_date, type, summary
+        FROM ces.interactions
+        WHERE jurisdiction_id = :jid
+        ORDER BY interaction_date DESC
+        LIMIT 50
     """), {"jid": jurisdiction_id})
-    data["interactions"] = [InteractionSummary(**dict(r)) for r in result.mappings().all()]
+    data["history"] = [HistoryEntry(**dict(r)) for r in result.mappings().all()]
 
     # Vendors
     result = await db.execute(text("""

@@ -28,6 +28,11 @@ class InteractionSummary(BaseModel):
     official_name: Optional[str] = None
     follow_up_date: Optional[date] = None
     completed: bool = False
+class HistoryEntry(BaseModel):
+    interaction_id: int
+    interaction_date: Optional[datetime] = None
+    type: Optional[str] = None
+    summary: Optional[str] = None
 class VendorSummary(BaseModel):
     vendor_id: int
     vendor_name: Optional[str] = None
@@ -76,7 +81,7 @@ class JurisdictionDetail(BaseModel):
     outreach: Optional[OutreachDetail] = None
     officials: list[OfficialSummary] = []
     staff: list[OfficialSummary] = []
-    interactions: list[InteractionSummary] = []
+    history: list[HistoryEntry] = []
     vendors: list[VendorSummary] = []
 # ── Officials ──
 
@@ -94,11 +99,11 @@ class OfficialDetail(OfficialListItem):
     physical_address: Optional[str] = None
     source: Optional[str] = None
     source_year: Optional[int] = None
-    interactions: list[InteractionSummary] = []
+    history: list[HistoryEntry] = []
 # ── Outreach ──
 
 class OutreachUpdate(BaseModel):
-    status: Optional[Literal["not_contacted", "contacted", "proposal", "follow_up", "member", "declined", "inactive"]] = None
+    status: Optional[Literal["not_contacted", "emailed", "contacted", "pitched", "presentation_scheduled", "presentation_given", "board_approved", "active_member", "declined", "inactive"]] = None
     assigned_rm: Optional[str] = None
     priority: Optional[Literal["hot", "warm", "cold"]] = None
     first_contact_date: Optional[date] = None

@@ -126,56 +126,43 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     ]
 
 
-    # Pending follow-ups: interactions + vendor next actions, full week window
+    # Action Items: outreach next actions (30 days) + vendor next actions (30 days)
     result = await db.execute(text("""
-        SELECT i.interaction_id, i.jurisdiction_id,
-               j.name as jurisdiction_name,
-               i.official_id, o.name as official_name,
-               i.interaction_date, i.type, i.summary,
-               i.follow_up_date, i.follow_up_note, i.completed
-        FROM ces.interactions i
-        LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = i.jurisdiction_id
-        LEFT JOIN public.officials o ON o.official_id = i.official_id
-        WHERE i.follow_up_date <= :week AND i.completed = false
-        ORDER BY i.follow_up_date
-    """), {"week": today + timedelta(days=7)})
-    interaction_followups = [
-        {**InteractionListItem(**dict(r)).dict(), "source": "entity",
-         "sort_name": (dict(r).get("jurisdiction_name") or ""),
-         "sort_date": str(dict(r).get("follow_up_date") or "")}
+        SELECT os.jurisdiction_id, j.name as entity_name,
+               os.next_action_date, os.next_action_type, os.status, os.assigned_rm, os.priority, os.notes,
+               'entity' as source
+        FROM ces.outreach_status os
+        JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id
+        WHERE os.next_action_date IS NOT NULL
+          AND os.next_action_date <= :horizon
+          AND (os.assigned_rm IS NULL OR os.assigned_rm = 'Both'
+               OR (CAST(:user_first AS TEXT) IS NULL OR os.assigned_rm = :user_first))
+        ORDER BY os.next_action_date
+    """), {"horizon": today + timedelta(days=30), "user_first": user_first})
+    entity_actions = [
+        {**dict(r), "next_action_date": str(r["next_action_date"]),
+         "overdue": r["next_action_date"] < today}
         for r in result.mappings().all()
     ]
 
-    # Vendor follow-ups (next_action_date within the week)
     result = await db.execute(text("""
-        SELECT v.vendor_id, v.vendor_name, v.next_action_date, v.next_action_type,
-               v.pipeline_status, v.notes, v.contact_name
+        SELECT v.vendor_id, v.vendor_name as entity_name,
+               v.next_action_date, v.next_action_type, v.pipeline_status as status,
+               v.notes, v.contact_name,
+               'vendor' as source
         FROM ces.vendors v
-        WHERE v.next_action_date <= :week AND v.next_action_date IS NOT NULL
+        WHERE v.next_action_date IS NOT NULL
+          AND v.next_action_date <= :horizon
         ORDER BY v.next_action_date
-    """), {"week": today + timedelta(days=7)})
-    vendor_followups = [
-        {"vendor_id": r["vendor_id"], "vendor_name": r["vendor_name"],
-         "next_action_date": str(r["next_action_date"]),
-         "next_action_type": r["next_action_type"],
-         "pipeline_status": r["pipeline_status"], "notes": r["notes"],
-         "contact_name": r["contact_name"],
-         "source": "vendor",
-         "sort_name": (r["vendor_name"] or ""),
-         "sort_date": str(r["next_action_date"] or ""),
-         "follow_up_date": str(r["next_action_date"])}
+    """), {"horizon": today + timedelta(days=30)})
+    vendor_actions = [
+        {**dict(r), "next_action_date": str(r["next_action_date"]),
+         "overdue": r["next_action_date"] < today}
         for r in result.mappings().all()
     ]
 
-    # Combine and sort by name, then date
-    pending_all = interaction_followups + vendor_followups
-    pending_all.sort(key=lambda x: (x["sort_name"].lower(), x["sort_date"]))
-
-
-
-
-
-
+    action_items = entity_actions + vendor_actions
+    action_items.sort(key=lambda x: (not x["overdue"], x["next_action_date"]))
 
     return {
         "today": str(today),
@@ -183,5 +170,5 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
         "schedule_today": schedule_today,
         "schedule_upcoming": schedule_upcoming,
         "upcoming_events": upcoming_events,
-        "pending_followups": pending_all,
-                    }
+        "action_items": action_items,
+    }

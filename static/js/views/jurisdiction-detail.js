@@ -21,7 +21,7 @@ const PRIORITY_COLORS = {
   cold: { bg: "rgba(100,116,139,0.15)", text: "#64748B", border: "#64748B" },
 };
 
-const ACTION_TYPES = ["Visit", "Call", "Present", "Follow-up", "Send info"];
+const ACTION_TYPES = {visit: "Visit", call: "Call", present: "Present", follow_up: "Follow-up", send_info: "Send info"};
 
 
 export async function renderJurisdictionDetail(el, id) {
@@ -57,7 +57,7 @@ export async function renderJurisdictionDetail(el, id) {
       <div class="form-group">
         <label class="form-label">Status</label>
         <select class="form-select" id="o-status">
-          ${["not_contacted","contacted","pitched","presentation_scheduled","board_approved","active_member"]
+          ${["not_contacted","emailed","contacted","pitched","presentation_scheduled","presentation_given","board_approved","active_member","declined","inactive"]
             .map(s => `<option value="${s}" ${o.status === s ? "selected" : ""}>${s.replace(/_/g, " ")}</option>`).join("")}
         </select>
       </div>
@@ -87,11 +87,11 @@ export async function renderJurisdictionDetail(el, id) {
           <input class="form-input" id="o-action-date" type="date" value="${o.next_action_date || ""}" style="flex:1">
           <select class="form-select" id="o-action-type" style="flex:1">
             <option value="">Type...</option>
-            ${ACTION_TYPES.map(t => `<option value="${t}" ${o.next_action_type === t ? "selected" : ""}>${t}</option>`).join("")}
+            ${Object.entries(ACTION_TYPES).map(([k,v]) => `<option value="${k}" ${o.next_action_type === k ? "selected" : ""}>${v}</option>`).join("")}
           </select>
         </div>
         ${o.next_action_date ? `<div style="font-size:0.8rem;color:var(--accent);margin-top:4px">
-          Scheduled: ${o.next_action_type || "Action"} ${formatDate(o.next_action_date)}
+          Scheduled: ${ACTION_TYPES[o.next_action_type] || o.next_action_type || "Action"} ${formatDate(o.next_action_date)}
         </div>` : ""}
       </div>
       <div class="form-group">
@@ -133,6 +133,7 @@ export async function renderJurisdictionDetail(el, id) {
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div style="font-weight:600;font-size:0.95rem">${lastFirst(off.name)}</div>
               <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" data-off-notes="${(off.notes||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button>
+              <button class="btn btn-sm" data-sched-official="${off.official_id}" data-sched-off-name="${(off.name||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(5,150,105,0.12);color:#059669;border:1px solid rgba(5,150,105,0.3);border-radius:6px">&#128197;</button>
             </div>
             <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${off.title || ""}</div>
             <div style="display:flex;gap:16px;flex-wrap:wrap">
@@ -170,26 +171,17 @@ export async function renderJurisdictionDetail(el, id) {
       });
     }
 
-    // Interactions
-    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
-      <span class="section-header" style="margin:0">Interactions (${j.interactions.length})</span>
-      <button class="btn btn-primary btn-sm" id="log-interaction-btn">+ Log</button>
-    </div>`;
-    if (j.interactions.length === 0) {
-      html += `<div class="card"><div class="empty">No interactions logged</div></div>`;
-    } else {
-      j.interactions.forEach(i => {
-        html += `<div class="card" style="padding:12px 16px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-weight:600;font-size:0.85rem">${badge(i.type)}</span>
-            <span style="font-size:0.8rem;color:var(--text-dim)">${formatDate(i.interaction_date)}</span>
+    // History (auto-logged from outreach changes)
+    if (j.history && j.history.length > 0) {
+      html += `<div style="margin:20px 0 10px">
+        <span class="section-header" style="margin:0">History</span>
+      </div>`;
+      j.history.forEach(h => {
+        html += `<div class="card" style="padding:10px 14px;margin-bottom:4px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:0.85rem;color:var(--text)">${h.summary || ""}</div>
+            <span style="font-size:0.75rem;color:var(--text-dim);white-space:nowrap;margin-left:12px">${formatDate(h.interaction_date)}</span>
           </div>
-          <div style="font-size:0.9rem">${i.summary || ""}</div>
-          ${i.official_name ? `<div style="font-size:0.8rem;color:var(--text-dim);margin-top:4px">w/ ${i.official_name}</div>` : ""}
-          ${i.follow_up_date ? `<div style="font-size:0.8rem;margin-top:4px;color:${i.completed ? "var(--green)" : "var(--yellow)"}">
-            Follow-up: ${formatDate(i.follow_up_date)} ${i.completed ? "(done)" : ""}
-            ${!i.completed ? `<button class="btn btn-sm" style="margin-left:8px;padding:4px 10px;font-size:0.7rem" data-complete="${i.interaction_id}">Mark Done</button>` : ""}
-          </div>` : ""}
         </div>`;
       });
     }
@@ -271,6 +263,17 @@ export async function renderJurisdictionDetail(el, id) {
     }
 
     function wireEditButtons() {
+      // Schedule buttons on official cards
+      el.querySelectorAll("[data-sched-official]").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          showScheduleOfficialModal(el, id, {
+            official_id: parseInt(btn.dataset.schedOfficial),
+            name: btn.dataset.schedOffName,
+            jurisdiction_name: j.name,
+          });
+        });
+      });
       el.querySelectorAll("[data-edit-official]").forEach(btn => {
         btn.addEventListener("click", () => {
           showOfficialModal(el, id, {
@@ -307,20 +310,8 @@ export async function renderJurisdictionDetail(el, id) {
       renderJurisdictionDetail(el, id);
     });
 
-    // Log interaction button
-    el.querySelector("#log-interaction-btn").addEventListener("click", () => {
-      showInteractionModal(el, id, j.officials);
-    });
 
-    // Complete follow-up buttons
-    el.querySelectorAll("[data-complete]").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        await api(`/interactions/${btn.dataset.complete}/complete`, { method: "PUT" });
-        showToast("Follow-up completed");
-        renderJurisdictionDetail(el, id);
-      });
-    });
+
 
     // Wire edit official buttons (initial render)
     wireEditButtons();
@@ -358,79 +349,6 @@ export async function renderJurisdictionDetail(el, id) {
     el.innerHTML = `<div class="empty">Failed to load: ${err.message}</div>`;
   }
 }
-
-function showInteractionModal(parentEl, jurisdictionId, officials) {
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Log Interaction</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Type</label>
-        <select class="form-select" id="i-type">
-          <option value="call">Call</option>
-          <option value="email">Email</option>
-          <option value="meeting">Meeting</option>
-          <option value="presentation">Presentation</option>
-          <option value="board_meeting">Board Meeting</option>
-          <option value="conference">Conference</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Official (optional)</label>
-        <select class="form-select" id="i-official">
-          <option value="">None</option>
-          ${officials.map(o => `<option value="${o.official_id}">${o.name} - ${o.title || ""}</option>`).join("")}
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Date</label>
-        <input class="form-input" id="i-date" type="datetime-local" value="${new Date().toISOString().slice(0,16)}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Summary</label>
-        <textarea class="form-textarea" id="i-summary" placeholder="What happened?"></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Follow-up Date (optional)</label>
-        <input class="form-input" id="i-followup" type="date">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Follow-up Note (optional)</label>
-        <input class="form-input" id="i-followup-note" placeholder="What to follow up on">
-      </div>
-      <button class="btn btn-primary btn-block" id="i-submit">Save Interaction</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-
-  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelector("#i-submit").addEventListener("click", async () => {
-    const body = {
-      jurisdiction_id: parseInt(jurisdictionId),
-      interaction_date: new Date(overlay.querySelector("#i-date").value).toISOString(),
-      type: overlay.querySelector("#i-type").value,
-      summary: overlay.querySelector("#i-summary").value,
-    };
-    const official = overlay.querySelector("#i-official").value;
-    if (official) body.official_id = parseInt(official);
-    const followup = overlay.querySelector("#i-followup").value;
-    if (followup) body.follow_up_date = followup;
-    const followupNote = overlay.querySelector("#i-followup-note").value;
-    if (followupNote) body.follow_up_note = followupNote;
-
-    await api("/interactions", { method: "POST", body });
-    overlay.remove();
-    showToast("Interaction logged");
-    renderJurisdictionDetail(parentEl, jurisdictionId);
-  });
-}
-
 
 function showOfficialModal(parentEl, jurisdictionId, existing, roleType) {
   const isEdit = !!existing;
@@ -608,6 +526,88 @@ function showProfileModal(parentEl, jurisdictionId, j, p) {
       overlay.remove();
       showToast("Profile saved");
       renderJurisdictionDetail(parentEl, jurisdictionId);
+    } catch (err) {
+      showToast("Error: " + err.message);
+    }
+  });
+}
+
+
+function showScheduleOfficialModal(parentEl, jurisdictionId, info) {
+  const today = new Date().toISOString().slice(0, 10);
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Schedule with ${info.name}</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      ${info.jurisdiction_name ? `<div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px">${info.jurisdiction_name}</div>` : ""}
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="sa-type">
+          <option value="entity_visit">Visit</option>
+          <option value="follow_up">Follow-up</option>
+          <option value="presentation">Presentation</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-input" id="sa-date" type="date" value="${today}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time (optional)</label>
+        <input class="form-input" id="sa-time" type="time">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input class="form-input" id="sa-title" value="${info.jurisdiction_name ? info.jurisdiction_name + ' \u2014 ' + info.name : info.name}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location (optional)</label>
+        <input class="form-input" id="sa-location" placeholder="Address...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assigned to</label>
+        <select class="form-select" id="sa-assigned">
+          <option value="">\u2014</option>
+          <option value="Steve">Steve</option>
+          <option value="Drew">Drew</option>
+          <option value="Both">Both</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" id="sa-notes" rows="2"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" id="sa-submit">Add to Schedule</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#sa-submit").addEventListener("click", async () => {
+    const itemDate = overlay.querySelector("#sa-date").value;
+    const title = overlay.querySelector("#sa-title").value.trim();
+    if (!itemDate || !title) { showToast("Date and title required"); return; }
+    let url = `/calendar/schedule/custom?title=${encodeURIComponent(title)}&item_date=${itemDate}&item_type=${overlay.querySelector("#sa-type").value}`;
+    if (info.official_id) url += `&official_id=${info.official_id}`;
+    if (jurisdictionId) url += `&entity_id=${jurisdictionId}`;
+    const itemTime = overlay.querySelector("#sa-time").value;
+    if (itemTime) url += `&item_time=${encodeURIComponent(itemTime)}`;
+    const location = overlay.querySelector("#sa-location").value.trim();
+    if (location) url += `&location=${encodeURIComponent(location)}`;
+    const assigned = overlay.querySelector("#sa-assigned").value;
+    if (assigned) url += `&assigned_to=${encodeURIComponent(assigned)}`;
+    const notes = overlay.querySelector("#sa-notes").value.trim();
+    if (notes) url += `&notes=${encodeURIComponent(notes)}`;
+    try {
+      await api(url, { method: "POST" });
+      showToast("Scheduled!");
+      overlay.remove();
     } catch (err) {
       showToast("Error: " + err.message);
     }

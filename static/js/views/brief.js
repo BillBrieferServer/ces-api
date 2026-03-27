@@ -185,36 +185,32 @@ export async function renderBrief(el) {
       });
     }
 
-    // Pending follow-ups (entities + vendors, full week)
-    html += `<div class="section-header">Follow-ups This Week</div>`;
-    if (data.pending_followups.length === 0) {
-      html += `<div class="card"><div class="empty">No follow-ups this week</div></div>`;
+
+    // Action Items (entities + vendors, next 30 days)
+    html += `<div class="section-header">Action Items</div>`;
+    if (!data.action_items || data.action_items.length === 0) {
+      html += `<div class="card"><div class="empty" style="font-size:0.85rem">No upcoming action items</div></div>`;
     } else {
-      const today = new Date(data.today);
-      data.pending_followups.forEach(f => {
-        const fDate = new Date(f.follow_up_date);
-        const isOverdue = fDate < today;
-        const dateColor = isOverdue ? "var(--red, #EF4444)" : "var(--yellow)";
+      data.action_items.forEach(a => {
+        const isOverdue = a.overdue;
+        const dateColor = isOverdue ? "var(--red, #EF4444)" : "var(--text-muted)";
         const overdueTag = isOverdue ? ` <span style="color:var(--red, #EF4444);font-size:0.7rem;font-weight:600">OVERDUE</span>` : "";
-        if (f.source === "vendor") {
-          html += `<div class="list-item" style="cursor:pointer" onclick="window.location.hash='#vendors/${f.vendor_id}'">
-            <div class="list-item-title">${f.vendor_name || "Unknown Vendor"} <span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(5,150,105,0.2);color:#059669">Vendor</span></div>
-            <div class="list-item-sub">${f.notes || ""}</div>
-            <div class="list-item-meta">
-              ${badge(f.next_action_type || "Follow-up")}
-              <span style="color:${dateColor};font-size:0.8rem">${formatDate(f.follow_up_date)}</span>${overdueTag}
-            </div>
-          </div>`;
-        } else {
-          html += `<div class="list-item" data-jid="${f.jurisdiction_id}">
-            <div class="list-item-title">${f.jurisdiction_name || "Unknown"} <span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(37,99,235,0.2);color:#2563EB">Entity</span></div>
-            <div class="list-item-sub">${f.follow_up_note || f.summary || ""}</div>
-            <div class="list-item-meta">
-              ${badge(f.type)}
-              <span style="color:${dateColor};font-size:0.8rem">${formatDate(f.follow_up_date)}</span>${overdueTag}
-            </div>
-          </div>`;
-        }
+        const isVendor = a.source === "vendor";
+        const srcBadge = isVendor
+          ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(5,150,105,0.2);color:#059669">Vendor</span>`
+          : `<span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(37,99,235,0.2);color:#2563EB">Entity</span>`;
+        const priorityBadge = a.priority ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(234,179,8,0.2);color:#EAB308">${a.priority}</span>` : "";
+        const actionLabel = a.next_action_type ? a.next_action_type.replace(/_/g, " ") : "Action";
+        const navAttr = isVendor ? `onclick="window.location.hash='#vendors/${a.vendor_id}'"` : `data-jid="${a.jurisdiction_id}"`;
+
+        html += `<div class="list-item" style="cursor:pointer" ${navAttr}>
+          <div class="list-item-title">${a.entity_name || "Unknown"} ${srcBadge} ${priorityBadge}</div>
+          <div class="list-item-sub">${actionLabel}${a.notes ? " — " + a.notes : ""}</div>
+          <div class="list-item-meta">
+            ${a.assigned_rm ? `<span style="font-size:0.75rem;color:var(--text-dim)">${a.assigned_rm}</span>` : ""}
+            <span style="color:${dateColor};font-size:0.8rem">${formatDate(a.next_action_date)}</span>${overdueTag}
+          </div>
+        </div>`;
       });
     }
 
