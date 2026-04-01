@@ -59,6 +59,11 @@ export async function renderOfficials(el) {
             <div class="list-item-title">${lastNameFirst(o.name)}</div>
             <div class="list-item-sub">${o.title || ""} &mdash; ${o.jurisdiction_name || ""}</div>
           </div>
+          <button class="btn btn-sm" data-sched-off="${o.official_id}"
+            data-sched-name="${(o.name || '').replace(/"/g, '&quot;')}"
+            data-sched-jid="${o.jurisdiction_id || ''}"
+            data-sched-jname="${(o.jurisdiction_name || '').replace(/"/g, '&quot;')}"
+            style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(5,150,105,0.12);color:#059669;border:1px solid rgba(5,150,105,0.3);border-radius:6px;margin-left:4px;flex-shrink:0">&#128197;</button>
           <button class="btn btn-sm" data-edit-off="${o.official_id}"
             data-off-name="${(o.name || "").replace(/"/g, '&quot;')}"
             data-off-title="${(o.title || "").replace(/"/g, '&quot;')}"
@@ -79,6 +84,19 @@ export async function renderOfficials(el) {
       row.style.cursor = "pointer";
       row.addEventListener("click", () => {
         navigate("jurisdiction-detail", { id: row.dataset.gotoJurisdiction, name: row.dataset.gotoName });
+      });
+    });
+
+    // Schedule buttons
+    listEl.querySelectorAll("[data-sched-off]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showScheduleOfficialModal({
+          official_id: parseInt(btn.dataset.schedOff),
+          name: btn.dataset.schedName,
+          jurisdiction_id: btn.dataset.schedJid ? parseInt(btn.dataset.schedJid) : null,
+          jurisdiction_name: btn.dataset.schedJname || "",
+        });
       });
     });
 
@@ -178,6 +196,88 @@ function showEditOfficialModal(officialId, existing, refreshFn) {
       overlay.remove();
       showToast("Contact deleted");
       refreshFn();
+    } catch (err) {
+      showToast("Error: " + err.message);
+    }
+  });
+}
+
+
+function showScheduleOfficialModal(info) {
+  const today = new Date().toISOString().slice(0, 10);
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Schedule with ${info.name}</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      ${info.jurisdiction_name ? `<div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px">${info.jurisdiction_name}</div>` : ""}
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="sa-type">
+          <option value="entity_visit">Visit</option>
+          <option value="follow_up">Follow-up</option>
+          <option value="presentation">Presentation</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-input" id="sa-date" type="date" value="${today}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time (optional)</label>
+        <input class="form-input" id="sa-time" type="time">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input class="form-input" id="sa-title" value="${info.jurisdiction_name ? info.jurisdiction_name + ' \u2014 ' + info.name : info.name}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location (optional)</label>
+        <input class="form-input" id="sa-location" placeholder="Address...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assigned to</label>
+        <select class="form-select" id="sa-assigned">
+          <option value="">\u2014</option>
+          <option value="Steve">Steve</option>
+          <option value="Drew">Drew</option>
+          <option value="Both">Both</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" id="sa-notes" rows="2"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" id="sa-submit">Add to Schedule</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#sa-submit").addEventListener("click", async () => {
+    const itemDate = overlay.querySelector("#sa-date").value;
+    const title = overlay.querySelector("#sa-title").value.trim();
+    if (!itemDate || !title) { showToast("Date and title required"); return; }
+    let url = `/calendar/schedule/custom?title=${encodeURIComponent(title)}&item_date=${itemDate}&item_type=${overlay.querySelector("#sa-type").value}`;
+    if (info.official_id) url += `&official_id=${info.official_id}`;
+    if (info.jurisdiction_id) url += `&entity_id=${info.jurisdiction_id}`;
+    const itemTime = overlay.querySelector("#sa-time").value;
+    if (itemTime) url += `&item_time=${encodeURIComponent(itemTime)}`;
+    const location = overlay.querySelector("#sa-location").value.trim();
+    if (location) url += `&location=${encodeURIComponent(location)}`;
+    const assigned = overlay.querySelector("#sa-assigned").value;
+    if (assigned) url += `&assigned_to=${encodeURIComponent(assigned)}`;
+    const notes = overlay.querySelector("#sa-notes").value.trim();
+    if (notes) url += `&notes=${encodeURIComponent(notes)}`;
+    try {
+      await api(url, { method: "POST" });
+      showToast("Scheduled!");
+      overlay.remove();
     } catch (err) {
       showToast("Error: " + err.message);
     }

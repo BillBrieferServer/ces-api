@@ -56,9 +56,9 @@ export async function renderVendors(el) {
       } else {
         pipeline.forEach(v => {
           const pc = PIPELINE_COLORS[v.pipeline_status] || PIPELINE_COLORS.prospect;
-          html += `<div class="list-item" data-vid="${v.vendor_id}" style="cursor:pointer">
+          html += `<div class="list-item" style="position:relative">
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
-              <div style="flex:1;min-width:0">
+              <div style="flex:1;min-width:0;cursor:pointer" data-vid="${v.vendor_id}">
                 <div class="list-item-title">${v.vendor_name}</div>
                 <div class="list-item-meta" style="margin-top:4px">
                   <span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:12px;background:${pc.bg};color:${pc.color}">${v.pipeline_status}</span>
@@ -86,6 +86,7 @@ export async function renderVendors(el) {
             </div>
           </div>
           ${!v.pipeline_status ? `<button class="btn btn-sm add-pipeline-btn" data-vid="${v.vendor_id}" style="padding:4px 10px;font-size:11px;min-height:28px;background:rgba(5,150,105,0.15);color:#059669;border:1px solid #059669;border-radius:6px;flex-shrink:0;margin-left:8px">+ Pipeline</button>` : `<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:12px;background:${(PIPELINE_COLORS[v.pipeline_status]||PIPELINE_COLORS.prospect).bg};color:${(PIPELINE_COLORS[v.pipeline_status]||PIPELINE_COLORS.prospect).color}">${v.pipeline_status}</span>`}
+          <button class="btn btn-sm sched-vendor-btn" data-sv-id="${v.vendor_id}" data-sv-name="${(v.vendor_name || '').replace(/"/g, '&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(5,150,105,0.12);color:#059669;border:1px solid rgba(5,150,105,0.3);border-radius:6px;flex-shrink:0;margin-left:4px">&#128197;</button>
         </div>`;
       });
       html += `</div>`;
@@ -128,8 +129,17 @@ export async function renderVendors(el) {
     // Vendor detail click
     el.querySelectorAll("[data-vid]").forEach(item => {
       if (item.classList.contains("add-pipeline-btn")) return;
+      if (item.classList.contains("sched-vendor-btn")) return;
       item.addEventListener("click", () => {
         showVendorDetail(el, parseInt(item.dataset.vid));
+      });
+    });
+
+    // Schedule icon buttons on vendor rows
+    el.querySelectorAll(".sched-vendor-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showScheduleVendorModal(parseInt(btn.dataset.svId), btn.dataset.svName);
       });
     });
 
@@ -323,24 +333,45 @@ export async function renderVendors(el) {
 
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
           <div style="font-weight:600;margin-bottom:8px">Schedule</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input class="form-input" id="vs-date" type="date" style="flex:0 0 140px;padding:6px 8px;font-size:12px">
-            <input class="form-input" id="vs-time" type="time" style="flex:0 0 100px;padding:6px 8px;font-size:12px">
-            <select class="form-select" id="vs-type" style="flex:0 0 110px;padding:6px 8px;font-size:12px">
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="vs-type">
               <option value="entity_visit">Visit</option>
               <option value="follow_up">Follow-up</option>
-              <option value="presentation">Present</option>
+              <option value="presentation">Presentation</option>
               <option value="custom">Custom</option>
             </select>
-            <select class="form-select" id="vs-assigned" style="flex:0 0 90px;padding:6px 8px;font-size:12px">
-              <option value="">Assign</option>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input class="form-input" id="vs-date" type="date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Time (optional)</label>
+            <input class="form-input" id="vs-time" type="time">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Title</label>
+            <input class="form-input" id="vs-title" value="Vendor meeting \u2014 ${v.vendor_name}" placeholder="Title (e.g. Meet with Jeff re: Keller)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location (optional)</label>
+            <input class="form-input" id="vs-location" placeholder="Address...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assigned to</label>
+            <select class="form-select" id="vs-assigned">
+              <option value="">\u2014</option>
               <option value="Steve">Steve</option>
               <option value="Drew">Drew</option>
               <option value="Both">Both</option>
             </select>
           </div>
-          <input class="form-input" id="vs-title" style="margin-top:6px;padding:6px 8px;font-size:12px" placeholder="Title (e.g. Meet with Jeff re: Keller)" value="Vendor meeting — ${v.vendor_name}">
-          <button class="btn btn-primary btn-block" id="vs-add" style="margin-top:8px">Add to Schedule</button>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="form-textarea" id="vs-notes" rows="2"></textarea>
+          </div>
+          <button class="btn btn-primary btn-block" id="vs-add">Add to Schedule</button>
         </div>
 
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
@@ -392,12 +423,20 @@ export async function renderVendors(el) {
       const sTitle = overlay.querySelector("#vs-title").value.trim();
       const sType = overlay.querySelector("#vs-type").value;
       const sAssigned = overlay.querySelector("#vs-assigned").value;
+      const sLocation = overlay.querySelector("#vs-location").value.trim();
+      const sNotes = overlay.querySelector("#vs-notes").value.trim();
       if (!sDate || !sTitle) { showToast("Date and title required"); return; }
       let url = `/calendar/schedule/custom?title=${encodeURIComponent(sTitle)}&item_date=${sDate}&item_type=${sType}&vendor_id=${vendorId}`;
       if (sTime) url += `&item_time=${encodeURIComponent(sTime)}`;
       if (sAssigned) url += `&assigned_to=${encodeURIComponent(sAssigned)}`;
-      await api(url, { method: "POST" });
-      showToast("Added to schedule");
+      if (sLocation) url += `&location=${encodeURIComponent(sLocation)}`;
+      if (sNotes) url += `&notes=${encodeURIComponent(sNotes)}`;
+      try {
+        await api(url, { method: "POST" });
+        showToast("Scheduled!");
+      } catch (err) {
+        showToast("Error: " + err.message);
+      }
     });
 
     overlay.querySelector("#vp-save").addEventListener("click", async () => {
@@ -444,4 +483,83 @@ export async function renderVendors(el) {
 
   const data = await loadData();
   render(data);
+}
+
+
+function showScheduleVendorModal(vendorId, vendorName) {
+  const today = new Date().toISOString().slice(0, 10);
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Schedule with ${vendorName}</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="sa-type">
+          <option value="entity_visit">Visit</option>
+          <option value="follow_up">Follow-up</option>
+          <option value="presentation">Presentation</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-input" id="sa-date" type="date" value="${today}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time (optional)</label>
+        <input class="form-input" id="sa-time" type="time">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input class="form-input" id="sa-title" value="Vendor meeting \u2014 ${vendorName}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location (optional)</label>
+        <input class="form-input" id="sa-location" placeholder="Address...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assigned to</label>
+        <select class="form-select" id="sa-assigned">
+          <option value="">\u2014</option>
+          <option value="Steve">Steve</option>
+          <option value="Drew">Drew</option>
+          <option value="Both">Both</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" id="sa-notes" rows="2"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" id="sa-submit">Add to Schedule</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#sa-submit").addEventListener("click", async () => {
+    const itemDate = overlay.querySelector("#sa-date").value;
+    const title = overlay.querySelector("#sa-title").value.trim();
+    if (!itemDate || !title) { showToast("Date and title required"); return; }
+    let url = `/calendar/schedule/custom?title=${encodeURIComponent(title)}&item_date=${itemDate}&item_type=${overlay.querySelector("#sa-type").value}&vendor_id=${vendorId}`;
+    const itemTime = overlay.querySelector("#sa-time").value;
+    if (itemTime) url += `&item_time=${encodeURIComponent(itemTime)}`;
+    const location = overlay.querySelector("#sa-location").value.trim();
+    if (location) url += `&location=${encodeURIComponent(location)}`;
+    const assigned = overlay.querySelector("#sa-assigned").value;
+    if (assigned) url += `&assigned_to=${encodeURIComponent(assigned)}`;
+    const notes = overlay.querySelector("#sa-notes").value.trim();
+    if (notes) url += `&notes=${encodeURIComponent(notes)}`;
+    try {
+      await api(url, { method: "POST" });
+      showToast("Scheduled!");
+      overlay.remove();
+    } catch (err) {
+      showToast("Error: " + err.message);
+    }
+  });
 }
