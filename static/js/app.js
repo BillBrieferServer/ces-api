@@ -1,13 +1,13 @@
-import { renderSearch } from "./views/search.js?v=1773600010";
-import { renderSchedule } from "./views/schedule.js?v=1773900005";
-import { renderReports } from "./views/reports.js?v=1773474500";
-import { renderCalendar } from "./views/calendar.js?v=1773900005";
-import { renderBrief } from "./views/brief.js?v=1774836000";
-import { renderJurisdictions } from "./views/jurisdictions.js?v=1773700012";
-import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1774836003";
-import { renderOfficials } from "./views/officials.js?v=1774574400";
-import { renderVendors } from "./views/vendors.js?v=1774574402";
-import { renderMap } from "./views/map.js?v=1773700004";
+import { renderSearch } from "./views/search.js?v=1775174500";
+import { renderSchedule } from "./views/schedule.js?v=1775062675";
+import { renderReports } from "./views/reports.js?v=1775174500";
+import { renderCalendar } from "./views/calendar.js?v=1775062675";
+import { renderBrief } from "./views/brief.js?v=1775174500";
+import { renderJurisdictions } from "./views/jurisdictions.js?v=1775174500";
+import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1775174500";
+import { renderOfficials } from "./views/officials.js?v=1775174500";
+import { renderVendors } from "./views/vendors.js?v=1775174500";
+import { renderMap } from "./views/map.js?v=1775174500";
 
 const content = document.getElementById("content");
 const headerTitle = document.getElementById("header-title");
@@ -125,7 +125,7 @@ function render(view, params) {
     case "schedule":
       headerTitle.textContent = "My Schedule";
       backBtn.classList.add("hidden");
-      renderSchedule(content);
+      renderSchedule(content, params);
       break;
     case "calendar":
       headerTitle.textContent = "Events Calendar";
@@ -163,10 +163,9 @@ export function emailLink(email) {
   return `<a class="contact-link" href="mailto:${email}">${email}</a>`;
 }
 
-export function badge(text, prefix = "") {
+export function badge(text) {
   if (!text) return "";
-  const cls = prefix ? `badge-${text.replace(/ /g, "_")}` : "";
-  return `<span class="badge ${cls}">${text.replace(/_/g, " ")}</span>`;
+  return `<span class="badge">${text.replace(/_/g, " ")}</span>`;
 }
 
 export function formatDate(d) {

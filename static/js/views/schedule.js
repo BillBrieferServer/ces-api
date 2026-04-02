@@ -1,76 +1,17 @@
 import { api, formatDate, navigate, showToast } from "../app.js";
-function fmt12(t) {
-  if (!t) return "";
-  const [h, m] = t.slice(0,5).split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const hr = h % 12 || 12;
-  return hr + ":" + String(m).padStart(2, "0") + " " + ampm;
-}
-
-
+import { fmt12, fmt, parseD, addD, rel, SCHED_BADGE, showContactPopup, fetchAndShowContact, assigneeOptions, schedEditFormHTML, saveScheduleEdit } from "../shared.js";
 const ROLLING = 90;
 const MO = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-const SCHED_BADGE = {
-  entity_visit: { label: "Visit", bg: "rgba(5,150,105,0.2)", color: "#059669" },
-  follow_up:    { label: "Follow-up", bg: "rgba(37,99,235,0.2)", color: "#2563EB" },
-  presentation: { label: "Present", bg: "rgba(109,40,217,0.2)", color: "#6D28D9" },
-  event:        { label: "Event", bg: "rgba(13,148,136,0.2)", color: "#0D9488" },
-  custom:       { label: "Custom", bg: "rgba(71,85,105,0.2)", color: "#475569" },
-};
-
-function showContactPopup(el, anchorEl, info) {
-  // Remove any existing popup
-  document.querySelectorAll(".sched-contact-popup").forEach(p => p.remove());
-
-  const popup = document.createElement("div");
-  popup.className = "sched-contact-popup";
-  popup.style.cssText = "position:fixed;z-index:1000;background:var(--bg-card,#1e1e2e);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px 16px;min-width:240px;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,0.4);font-size:13px;";
-
-  let html = `<div style="font-weight:700;font-size:14px;margin-bottom:8px">${info.name}</div>`;
-  if (info.title) html += `<div style="color:var(--text-dim);font-size:12px;margin-bottom:8px">${info.title}</div>`;
-  if (info.phone) html += `<div style="margin-bottom:4px"><a href="tel:${info.phone}" style="color:var(--accent);text-decoration:none">${info.phone}</a> <span style="color:var(--text-dim);font-size:11px">work</span></div>`;
-  if (info.cell_phone) html += `<div style="margin-bottom:4px"><a href="tel:${info.cell_phone}" style="color:var(--accent);text-decoration:none">${info.cell_phone}</a> <span style="color:var(--text-dim);font-size:11px">cell</span></div>`;
-  if (info.email) html += `<div style="margin-bottom:4px"><a href="mailto:${info.email}" style="color:var(--accent);text-decoration:none">${info.email}</a></div>`;
-  if (info.address) html += `<div style="font-size:12px;margin-top:6px"><a href="https://maps.google.com/?q=${encodeURIComponent(info.address)}" target="_blank" style="color:var(--accent);text-decoration:none">${info.address}</a></div>`;
-  if (info.physical_address) html += `<div style="font-size:12px;margin-top:6px"><a href="https://maps.google.com/?q=${encodeURIComponent(info.physical_address)}" target="_blank" style="color:var(--accent);text-decoration:none">${info.physical_address}</a></div>`;
-
-  popup.innerHTML = html;
-  document.body.appendChild(popup);
-
-  // Position near the anchor
-  const rect = anchorEl.getBoundingClientRect();
-  popup.style.left = Math.min(rect.left, window.innerWidth - 340) + "px";
-  popup.style.top = (rect.bottom + 6) + "px";
-
-  // Close on click outside
-  const closer = (e) => {
-    if (!popup.contains(e.target) && e.target !== anchorEl) {
-      popup.remove();
-      document.removeEventListener("click", closer);
-    }
-  };
-  setTimeout(() => document.addEventListener("click", closer), 10);
-}
-
-function fmt(d) { return d.toISOString().slice(0, 10); }
-function parseD(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
-function addD(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function rel(d) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const x = Math.round((d - today) / 864e5);
-  return x === 0 ? "Today" : x === 1 ? "Tomorrow" : x < 0 ? `${-x}d ago` : `In ${x}d`;
-}
-
-export async function renderSchedule(el) {
+export async function renderSchedule(el, params = {}) {
   let schedStart = new Date(); schedStart.setHours(0,0,0,0);
   let schedItems = [];
   let schedFilter = null;
   let showCompleted = false;
   let stats = {};
   let editingItem = null;
-  let viewMode = "rolling"; // "rolling", "pending", "overdue"
+  let viewMode = params.viewMode || "rolling"; // "rolling", "pending", "overdue"
 
   async function loadSchedule() {
     try {
@@ -362,41 +303,7 @@ export async function renderSchedule(el) {
     el.querySelectorAll(".sched-contact-btn").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
-        const type = btn.dataset.contactType;
-        const id = btn.dataset.contactId;
-        try {
-          if (type === "entity") {
-            const j = await api(`/jurisdictions/${id}`);
-            const p = j.profile || {};
-            showContactPopup(el, btn, {
-              name: j.name,
-              title: j.type ? j.type.replace(/_/g, " ") : "",
-              phone: p.office_phone,
-              address: p.physical_address || p.mailing_address,
-            });
-          } else if (type === "official") {
-            const o = await api(`/officials/${id}`);
-            showContactPopup(el, btn, {
-              name: o.name,
-              title: o.title,
-              phone: o.phone,
-              email: o.email,
-              physical_address: o.physical_address,
-            });
-          } else if (type === "vendor") {
-            const v = await api(`/vendors/${id}`);
-            showContactPopup(el, btn, {
-              name: v.vendor_name,
-              title: v.contact_name ? (v.contact_title ? v.contact_name + " — " + v.contact_title : v.contact_name) : "",
-              phone: v.phone,
-              cell_phone: v.cell_phone,
-              email: v.email,
-              address: v.address,
-            });
-          }
-        } catch (err) {
-          showToast("Could not load contact info");
-        }
+        fetchAndShowContact(btn);
       });
     });
 

@@ -67,7 +67,6 @@ from .auth_security import (
     generate_device_fingerprint,
     # Validation
     validate_email,
-    is_legislative_email,
     # Rate limiting
     check_rate_limit,
     RATE_LIMITS,
@@ -133,7 +132,6 @@ __all__ = [
     "verify_password",
     "validate_password",
     "validate_email",
-    "is_legislative_email",
     "check_rate_limit",
     "RATE_LIMITS",
     "calculate_lockout_duration",

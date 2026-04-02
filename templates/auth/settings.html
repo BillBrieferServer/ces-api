@@ -208,7 +208,7 @@
             <form method="post" action="/auth/settings/trusted-devices/remove/{{ device.id }}" style="margin:0">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
               <button type="submit" class="btn btn-danger"
-                onclick="return confirm("Remove this trusted device?")">
+                onclick="return confirm('Remove this trusted device?')">
                 Remove
               </button>
             </form>
@@ -223,7 +223,7 @@
       <form method="post" action="/auth/settings/trusted-devices/remove-all" style="margin-bottom:24px">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
         <button type="submit" class="btn btn-secondary"
-          onclick="return confirm("Remove all trusted devices?")">
+          onclick="return confirm('Remove all trusted devices?')">
           Remove All Trusted Devices
         </button>
       </form>

@@ -54,10 +54,10 @@ async function doSearch(q, el) {
         html += `<div class="list-item" data-action="jurisdiction" data-id="${j.jurisdiction_id}" data-name="${j.name}">
           <div class="list-item-title">${highlight(j.name, q)}</div>
           <div class="list-item-meta">
-            ${badge(j.type, "")}
+            ${badge(j.type)}
             ${j.county_name ? `<span style="font-size:0.8rem;color:var(--text-dim)">${j.county_name} County</span>` : ""}
             ${j.population ? `<span style="font-size:0.8rem">Pop: ${j.population.toLocaleString()}</span>` : ""}
-            ${j.status ? badge(j.status, "") : ""}
+            ${j.status ? badge(j.status) : ""}
           </div>
         </div>`;
       });
@@ -86,9 +86,9 @@ async function doSearch(q, el) {
         html += `<div class="list-item" data-action="jurisdiction" data-id="${n.jurisdiction_id}" data-name="${n.jurisdiction_name}">
           <div class="list-item-title">${highlight(n.jurisdiction_name, q)}</div>
           <div class="list-item-meta">
-            ${badge(n.type, "")}
-            ${n.status ? badge(n.status, "") : ""}
-            ${n.priority ? badge(n.priority, "") : ""}
+            ${badge(n.type)}
+            ${n.status ? badge(n.status) : ""}
+            ${n.priority ? badge(n.priority) : ""}
           </div>
           <div style="font-size:0.85rem;color:var(--text-dim);margin-top:4px;font-style:italic">${highlight(n.notes, q)}</div>
         </div>`;

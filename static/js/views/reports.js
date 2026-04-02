@@ -1,26 +1,9 @@
 import { api } from "../app.js";
+import { ENTITY_LABELS, fmtType, SCHED_BADGE } from "../shared.js";
 
 const STATUS_LABELS = {
   not_contacted: "Not Contacted", contacted: "Contacted", pitched: "Pitched",
   presentation_scheduled: "Presentation", board_approved: "Approved", active_member: "Active"
-};
-const TYPE_LABELS = {
-  entity_visit: "Visit", follow_up: "Follow-up", presentation: "Presentation",
-  event: "Event", custom: "Custom"
-};
-const ENTITY_LABELS = {
-  city: "City", county: "County", fire_district: "Fire District",
-  school_district: "School District", cemetery_district: "Cemetery District",
-  highway_district: "Highway District", library_district: "Library District",
-  irrigation_district: "Irrigation District", water_district: "Water District",
-  sewer_district: "Sewer District", recreation_district: "Recreation District",
-  hospital_district: "Hospital District", housing_authority: "Housing Authority",
-  alternative_school: "Alternative School", soil_water_district: "Soil & Water",
-  drainage_district: "Drainage District", sewer_water_district: "Sewer/Water",
-  flood_control_district: "Flood Control", health_district: "Health District",
-  natural_resource_district: "Natural Resource", special_district: "Special District",
-  solid_waste_district: "Solid Waste", airport_authority: "Airport Authority",
-  port_authority: "Port Authority", transit_authority: "Transit Authority",
 };
 const PRI_COLORS = { hot: "#DC2626", warm: "#EAB308", cold: "#3B82F6", none: "#475569" };
 
@@ -57,7 +40,7 @@ function getCSVData(d) {
   switch (d.type) {
     case "schedule": return d.items.map(i => ({
       Title: i.title, Date: i.item_date, Time: i.item_time || "",
-      Type: TYPE_LABELS[i.item_type] || i.item_type,
+      Type: (SCHED_BADGE[i.item_type] || {}).label || i.item_type,
       Assigned: i.assigned_to || "", Location: i.event_location || "",
       Completed: i.completed ? "Yes" : "No", Notes: i.notes || ""
     }));
@@ -79,8 +62,6 @@ function getCSVData(d) {
     default: return [];
   }
 }
-
-function fmtType(t) { return ENTITY_LABELS[t] || t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()); }
 
 export async function renderReports(el) {
   let filters = null;
@@ -207,7 +188,7 @@ export async function renderReports(el) {
       const mx = Math.max(...d.by_type.map(t => t.total));
       d.by_type.forEach(t => {
         html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:12px;min-width:80px;color:var(--text-secondary)">${TYPE_LABELS[t.item_type] || t.item_type}</span>
+          <span style="font-size:12px;min-width:80px;color:var(--text-secondary)">${(SCHED_BADGE[t.item_type] || {}).label || t.item_type}</span>
           <div style="flex:1">${bar(t.pending, mx, "#059669")}</div>
           <span style="font-size:10px;color:var(--text-muted);min-width:60px">${t.completed} done</span>
         </div>`;
@@ -218,7 +199,7 @@ export async function renderReports(el) {
       html += `<div class="card" style="padding:14px">
         <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:8px">Items (${d.items.length})</div>`;
       d.items.forEach(i => {
-        const b = TYPE_LABELS[i.item_type] || i.item_type;
+        const b = (SCHED_BADGE[i.item_type] || {}).label || i.item_type;
         html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
           <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;background:rgba(5,150,105,0.2);color:#059669">${b}</span>
           ${i.assigned_to ? `<span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.2);color:#EAB308">${i.assigned_to}</span>` : ""}

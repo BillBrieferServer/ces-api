@@ -1,14 +1,5 @@
 import { api, navigate, badge } from "../app.js";
 
-
-function titleCase(s) {
-  const small = new Set(["of","and","the","in","at","by","for","to","no","or","a"]);
-  return s.toLowerCase().split(/\s+/).map((w, idx) => {
-    if (idx > 0 && small.has(w)) return w;
-    return w.charAt(0).toUpperCase() + w.slice(1);
-  }).join(" ");
-}
-
 function displayName(name, type) {
   if (type === "city" && name.toLowerCase().startsWith("city of ")) {
     return name.slice(8) + ", City of";
@@ -34,6 +25,7 @@ export async function renderJurisdictions(el) {
         <option value="airport_authority">Airport Authority</option>
         <option value="alternative_school">Alternative Schools</option>
         <option value="cemetery_district">Cemetery Districts</option>
+        <option value="charter_school">Charter Schools</option>
         <option value="city">Cities</option>
         <option value="county">Counties</option>
         <option value="drainage_district">Drainage Districts</option>
@@ -111,9 +103,10 @@ export async function renderJurisdictions(el) {
         <div class="list-item-title">${displayName(j.name, j.type)}</div>
         <div class="list-item-sub">${j.county_name || ""} County</div>
         <div class="list-item-meta">
-          ${badge(j.type, "")}
+          ${badge(j.type)}
           ${j.population ? `<span style="font-size:0.8rem">Pop: ${j.population.toLocaleString()}</span>` : ""}
-          ${badge(j.status, "")}
+          ${j.grades ? `<span style="font-size:0.8rem;color:var(--accent)">Grades ${j.grades}</span>` : ""}
+          ${badge(j.status)}
         </div>
       </div>
     `).join("");

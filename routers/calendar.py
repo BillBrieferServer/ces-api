@@ -503,6 +503,69 @@ async def remove_from_schedule(item_id: int, db: AsyncSession = Depends(get_db))
     return {"ok": True}
 
 
+
+
+@router.post("/calendar/events/manual")
+async def add_manual_event(
+    request: Request,
+    title: str = Query(...),
+    event_date: str = Query(...),
+    end_date: Optional[str] = Query(None),
+    location: Optional[str] = Query(None),
+    description: Optional[str] = Query(None),
+    url: Optional[str] = Query(None),
+    org_name: Optional[str] = Query("Manual"),
+    color: Optional[str] = Query("#475569"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a single event manually. Creates/reuses a source for the org."""
+    from main import require_admin_api
+    denied = require_admin_api(request)
+    if denied:
+        return denied
+
+    org_abbrev = org_name.replace(" ", "").upper()[:6] if org_name else "MANUAL"
+
+    # Find or create source
+    result = await db.execute(
+        text("SELECT id FROM calendar_sources WHERE org_abbrev = :abbrev"),
+        {"abbrev": org_abbrev},
+    )
+    row = result.first()
+    if row:
+        source_id = row[0]
+    else:
+        result = await db.execute(
+            text("""
+                INSERT INTO calendar_sources (org_name, org_abbrev, url, parser_type, color)
+                VALUES (:org_name, :org_abbrev, '', 'manual', :color)
+                RETURNING id
+            """),
+            {"org_name": org_name, "org_abbrev": org_abbrev, "color": color},
+        )
+        source_id = result.first()[0]
+
+    ext_id = url or f"{title}-{event_date}"
+    await db.execute(
+        text("""
+            INSERT INTO events (source_id, title, event_date, end_date, location, description, url, ext_id)
+            VALUES (:source_id, :title, :event_date, :end_date, :location, :description, :url, :ext_id)
+            ON CONFLICT (source_id, ext_id) DO NOTHING
+        """),
+        {
+            "source_id": source_id,
+            "title": title,
+            "event_date": date.fromisoformat(event_date),
+            "end_date": date.fromisoformat(end_date) if end_date else None,
+            "location": location or None,
+            "description": description or None,
+            "url": url or None,
+            "ext_id": ext_id,
+        },
+    )
+    await db.commit()
+    return {"ok": True, "source_id": source_id}
+
 @router.get("/calendar/stats")
 async def calendar_stats(db: AsyncSession = Depends(get_db)):
     today = datetime.now(_MT).date()

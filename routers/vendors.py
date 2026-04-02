@@ -14,9 +14,13 @@ async def create_vendor(vendor: VendorCreate, db: AsyncSession = Depends(get_db)
     result = await db.execute(text("""
         INSERT INTO ces.vendors
             (vendor_name, contact_name, phone, email, website, address,
-             bluebook_status, ces_contract_category, source)
+             bluebook_status, ces_contract_category, source,
+             contact_title, cell_phone, pipeline_status, assigned_rm, notes,
+             next_action_date, next_action_type)
         VALUES (:vendor_name, :contact_name, :phone, :email, :website, :address,
-                :bluebook_status, :ces_contract_category, :source)
+                :bluebook_status, :ces_contract_category, :source,
+                :contact_title, :cell_phone, :pipeline_status, :assigned_rm, :notes,
+                :next_action_date, :next_action_type)
         RETURNING vendor_id, created_date
     """), vendor.model_dump())
     await db.commit()

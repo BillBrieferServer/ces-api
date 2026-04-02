@@ -290,14 +290,16 @@ async def _report_activity(db, today, since, assignee):
         where_parts.append("i.interaction_date >= :since")
         params["since"] = since
     if assignee:
-        where_parts.append("i.created_by = :assignee")
+        where_parts.append("os.assigned_rm = :assignee")
         params["assignee"] = assignee
     where = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
 
     # By type
     result = await db.execute(text(f"""
         SELECT COALESCE(i.type, 'other') as type, COUNT(*) as count
-        FROM ces.interactions i {where}
+        FROM ces.interactions i
+        LEFT JOIN ces.outreach_status os ON os.jurisdiction_id = i.jurisdiction_id
+        {where}
         GROUP BY i.type ORDER BY count DESC
     """), params)
     by_type = [dict(r) for r in result.mappings().all()]
@@ -308,6 +310,7 @@ async def _report_activity(db, today, since, assignee):
                j.name as jurisdiction_name
         FROM ces.interactions i
         LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = i.jurisdiction_id
+        LEFT JOIN ces.outreach_status os ON os.jurisdiction_id = i.jurisdiction_id
         {where}
         ORDER BY i.interaction_date DESC LIMIT 50
     """), params)

@@ -3,16 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from database import get_db
+from utils import get_user_name
 from models import OutreachUpdate, OutreachDetail
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
 
 ACTION_TYPE_MAP = {
-    "Visit": "entity_visit",
-    "Call": "follow_up",
-    "Present": "presentation",
-    "Follow-up": "follow_up",
-    "Send info": "follow_up",
+    "visit": "entity_visit",
+    "call": "follow_up",
+    "present": "presentation",
+    "follow_up": "follow_up",
+    "send_info": "follow_up",
 }
 
 ACTION_LABELS = {
@@ -26,22 +27,6 @@ STATUS_LABELS = {
     "board_approved": "Board Approved", "active_member": "Active Member",
     "declined": "Declined", "inactive": "Inactive",
 }
-
-
-def _get_user_name(request: Request):
-    try:
-        from auth import get_session_by_token_hash
-        from auth.auth_security import hash_token
-        token = request.cookies.get("bb_session")
-        if not token:
-            return None
-        session = get_session_by_token_hash(hash_token(token))
-        if not session:
-            return None
-        name = session.get("name", "")
-        return name.split()[0] if name else None
-    except Exception:
-        return None
 
 
 @router.put("/{jurisdiction_id}", response_model=OutreachDetail)
@@ -91,7 +76,7 @@ async def update_outreach(
         await _sync_schedule_item(db, jurisdiction_id, fields)
 
     # Auto-log changes to interactions as history
-    user = _get_user_name(request)
+    user = get_user_name(request)
     changes = []
     for key, new_val in fields.items():
         if key == "first_contact_date" and new_val == "CURRENT_DATE_MARKER":

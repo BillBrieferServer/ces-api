@@ -1,28 +1,5 @@
 import { api, phoneLink, emailLink, badge, formatDate, showToast } from "../app.js";
-
-function lastFirst(name) {
-  if (!name) return "";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  const last = parts[parts.length - 1];
-  const rest = parts.slice(0, -1).join(" ");
-  return last + ", " + rest;
-}
-
-function getLastName(name) {
-  if (!name) return "";
-  const parts = name.trim().split(/\s+/);
-  return parts[parts.length - 1].toLowerCase();
-}
-
-const PRIORITY_COLORS = {
-  hot: { bg: "rgba(220,38,38,0.15)", text: "#DC2626", border: "#DC2626" },
-  warm: { bg: "rgba(180,83,9,0.15)", text: "#B45309", border: "#B45309" },
-  cold: { bg: "rgba(100,116,139,0.15)", text: "#64748B", border: "#64748B" },
-};
-
-const ACTION_TYPES = {visit: "Visit", call: "Call", present: "Present", follow_up: "Follow-up", send_info: "Send info"};
-
+import { lastFirst, getLastName, PRIORITY_COLORS, ACTION_TYPES, assigneeOptions, showScheduleModal } from "../shared.js";
 
 export async function renderJurisdictionDetail(el, id) {
   try {
@@ -32,8 +9,9 @@ export async function renderJurisdictionDetail(el, id) {
 
     let html = `
       <div style="margin-bottom:4px">
-        ${badge(j.type, "")}
+        ${badge(j.type)}
         <span style="color:var(--text-dim);font-size:0.85rem;margin-left:4px">${j.county_name || ""} County</span>
+        ${j.grades ? `<span style="color:var(--accent);font-size:0.85rem;margin-left:8px">Grades ${j.grades}</span>` : ""}
       </div>
       <h2 style="font-size:1.3rem;margin-bottom:16px">${j.name}</h2>
     `;
@@ -63,7 +41,7 @@ export async function renderJurisdictionDetail(el, id) {
       </div>
       <div class="form-group">
         <label class="form-label">Assigned RM</label>
-        <select class="form-input" id="o-rm" style="padding:8px;font-size:13px"><option value="">—</option><option value="Steve" ${o.assigned_rm==="Steve"?"selected":""}>Steve</option><option value="Drew" ${o.assigned_rm==="Drew"?"selected":""}>Drew</option><option value="Both" ${o.assigned_rm==="Both"?"selected":""}>Both</option></select>
+        <select class="form-input" id="o-rm" style="padding:8px;font-size:13px">${assigneeOptions(o.assigned_rm, true)}</select>
       </div>
       <div class="form-group">
         <label class="form-label">Priority</label>
@@ -155,10 +133,10 @@ export async function renderJurisdictionDetail(el, id) {
     if (j.staff.length === 0) {
       html += `<div class="card"><div class="empty">No key staff on file</div></div>`;
     } else {
-      j.staff.forEach(s => {
+      [...j.staff].sort((a, b) => (a.title || "").localeCompare(b.title || "") || getLastName(a.name).localeCompare(getLastName(b.name))).forEach(s => {
         html += `<div class="card" style="padding:12px 16px">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="font-weight:600;font-size:0.95rem">${s.name}</div>
+            <div style="font-weight:600;font-size:0.95rem">${lastFirst(s.name)}</div>
             <button class="btn btn-sm" data-edit-staff="${s.official_id}" data-staff-name="${(s.name||'').replace(/"/g,'&quot;')}" data-staff-title="${(s.title||'').replace(/"/g,'&quot;')}" data-staff-phone="${s.phone||''}" data-staff-email="${s.email||''}" data-staff-notes="${(s.notes||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button>
           </div>
           <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${s.title || ""}</div>
@@ -267,10 +245,12 @@ export async function renderJurisdictionDetail(el, id) {
       el.querySelectorAll("[data-sched-official]").forEach(btn => {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
-          showScheduleOfficialModal(el, id, {
-            official_id: parseInt(btn.dataset.schedOfficial),
-            name: btn.dataset.schedOffName,
-            jurisdiction_name: j.name,
+          showScheduleModal({
+            title: "Schedule with " + btn.dataset.schedOffName,
+            entityId: id,
+            officialId: parseInt(btn.dataset.schedOfficial),
+            defaultTitle: j.name + " \u2014 " + btn.dataset.schedOffName,
+            onSaved: () => renderJurisdictionDetail(el, id),
           });
         });
       });
@@ -533,83 +513,3 @@ function showProfileModal(parentEl, jurisdictionId, j, p) {
 }
 
 
-function showScheduleOfficialModal(parentEl, jurisdictionId, info) {
-  const today = new Date().toISOString().slice(0, 10);
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Schedule with ${info.name}</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      ${info.jurisdiction_name ? `<div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px">${info.jurisdiction_name}</div>` : ""}
-      <div class="form-group">
-        <label class="form-label">Type</label>
-        <select class="form-select" id="sa-type">
-          <option value="entity_visit">Visit</option>
-          <option value="follow_up">Follow-up</option>
-          <option value="presentation">Presentation</option>
-          <option value="custom">Custom</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Date</label>
-        <input class="form-input" id="sa-date" type="date" value="${today}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Time (optional)</label>
-        <input class="form-input" id="sa-time" type="time">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Title</label>
-        <input class="form-input" id="sa-title" value="${info.jurisdiction_name ? info.jurisdiction_name + ' \u2014 ' + info.name : info.name}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Location (optional)</label>
-        <input class="form-input" id="sa-location" placeholder="Address...">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Assigned to</label>
-        <select class="form-select" id="sa-assigned">
-          <option value="">\u2014</option>
-          <option value="Steve">Steve</option>
-          <option value="Drew">Drew</option>
-          <option value="Both">Both</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notes (optional)</label>
-        <textarea class="form-textarea" id="sa-notes" rows="2"></textarea>
-      </div>
-      <button class="btn btn-primary btn-block" id="sa-submit">Add to Schedule</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelector("#sa-submit").addEventListener("click", async () => {
-    const itemDate = overlay.querySelector("#sa-date").value;
-    const title = overlay.querySelector("#sa-title").value.trim();
-    if (!itemDate || !title) { showToast("Date and title required"); return; }
-    let url = `/calendar/schedule/custom?title=${encodeURIComponent(title)}&item_date=${itemDate}&item_type=${overlay.querySelector("#sa-type").value}`;
-    if (info.official_id) url += `&official_id=${info.official_id}`;
-    if (jurisdictionId) url += `&entity_id=${jurisdictionId}`;
-    const itemTime = overlay.querySelector("#sa-time").value;
-    if (itemTime) url += `&item_time=${encodeURIComponent(itemTime)}`;
-    const location = overlay.querySelector("#sa-location").value.trim();
-    if (location) url += `&location=${encodeURIComponent(location)}`;
-    const assigned = overlay.querySelector("#sa-assigned").value;
-    if (assigned) url += `&assigned_to=${encodeURIComponent(assigned)}`;
-    const notes = overlay.querySelector("#sa-notes").value.trim();
-    if (notes) url += `&notes=${encodeURIComponent(notes)}`;
-    try {
-      await api(url, { method: "POST" });
-      showToast("Scheduled!");
-      overlay.remove();
-    } catch (err) {
-      showToast("Error: " + err.message);
-    }
-  });
-}

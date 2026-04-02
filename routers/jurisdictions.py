@@ -51,7 +51,7 @@ async def list_jurisdictions(
         SELECT j.jurisdiction_id, j.name, j.type,
                c.county_name as county_name,
                jp.population, jp.employee_count, jp.aic_district,
-               os.status, os.assigned_rm
+               os.status, os.assigned_rm, j.grades
         FROM common.jurisdictions j
         LEFT JOIN common.counties c ON c.county_id = j.county_id
         LEFT JOIN ces.jurisdiction_profile jp ON jp.jurisdiction_id = j.jurisdiction_id
@@ -70,7 +70,7 @@ async def list_jurisdictions(
 async def get_jurisdiction(jurisdiction_id: int, db: AsyncSession = Depends(get_db)):
     # Base info
     result = await db.execute(text("""
-        SELECT j.jurisdiction_id, j.name, j.type, j.website_url,
+        SELECT j.jurisdiction_id, j.name, j.type, j.website_url, j.grades,
                c.county_name as county_name
         FROM common.jurisdictions j
         LEFT JOIN common.counties c ON c.county_id = j.county_id

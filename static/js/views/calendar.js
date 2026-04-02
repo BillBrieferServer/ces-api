@@ -1,4 +1,5 @@
-import { api } from "../app.js";
+import { api, navigate } from "../app.js";
+import { fmt, parseD, addD, rel, isToday, assigneeOptions, SCHED_BADGE } from "../shared.js";
 
 const ROLLING = 10;
 const MO = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -8,15 +9,6 @@ const COLORS = [
   {l:"Red",h:"#DC2626"},{l:"Blue",h:"#2563EB"},{l:"Rose",h:"#BE185D"},{l:"Slate",h:"#475569"},
 ];
 
-function fmt(d) { return d.toISOString().slice(0, 10); }
-function parseD(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
-function addD(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function isToday(d) { return fmt(d) === fmt(new Date()); }
-function rel(d) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const x = Math.round((d - today) / 864e5);
-  return x === 0 ? "Today" : x === 1 ? "Tomorrow" : x < 0 ? `${-x}d ago` : `In ${x}d`;
-}
 function fmtDate(d) { return `${DS[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
 function autoAb(n) { return n.replace(/\b(of|the|and|in|for)\b/gi, "").split(/\s+/).map(w => (w[0] || "")).join("").toUpperCase().slice(0, 6); }
 
@@ -29,6 +21,7 @@ export async function renderCalendar(el) {
   let stats = {};
   let filter = null; // null = all, or org_abbrev string
   let showAddSource = false;
+  let showAddEvent = false;
   let calView = null; // null = normal, "next10", "upcoming", "scheduled", "overdue"
   let selectedEvent = null;
 
@@ -79,6 +72,7 @@ export async function renderCalendar(el) {
       html += `<button class="cal-filter-btn ${filter === s.org_abbrev ? 'active' : ''}" data-filter="${s.org_abbrev}" style="--fc:${s.color}">${s.org_abbrev} <span style="opacity:.6;font-size:11px">${s.event_count}</span></button>`;
     }
     html += `<button class="cal-add-src-btn" id="cal-add-src-toggle">+ Add source</button>`;
+    html += `<button class="cal-add-src-btn" id="cal-add-evt-toggle" style="background:var(--primary);color:#fff">+ Add event</button>`;
     html += `</div>`;
     return html;
   }
@@ -102,7 +96,17 @@ export async function renderCalendar(el) {
 
   function renderEventCard(e) {
     const d = parseD(e.event_date);
-    const multiDay = e.end_date ? ` &ndash; ${fmtDate(parseD(e.end_date))}` : "";
+    const startStr = `${MO[d.getMonth()]} ${d.getDate()}`;
+    let dateDisplay;
+    if (e.end_date) {
+      const ed = parseD(e.end_date);
+      const endStr = d.getMonth() === ed.getMonth()
+        ? `${ed.getDate()}`
+        : `${MO[ed.getMonth()]} ${ed.getDate()}`;
+      dateDisplay = `${startStr} &ndash; ${endStr}`;
+    } else {
+      dateDisplay = startStr;
+    }
     return `<div class="cal-event" data-eid="${e.id}" style="border-left:3px solid ${e.color}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="font-weight:600;font-size:13px;color:var(--text)">${e.title}</div>
@@ -110,7 +114,7 @@ export async function renderCalendar(el) {
       </div>
       ${e.location ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${e.location}</div>` : ""}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-        <span style="font-size:11px;color:var(--text-muted)">${rel(d)}${multiDay}</span>
+        <span style="font-size:11px;color:var(--text-muted)">${dateDisplay} &middot; ${rel(d)}</span>
         ${e.scheduled
           ? `<span style="font-size:11px;color:var(--green,#059669);font-weight:600">&#10003; Scheduled</span><button class="cal-unsched-btn" data-uid="${e.id}" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0 4px" title="Remove from schedule">&times;</button>`
           : `<select class="cal-assign-sel" data-sid="${e.id}" style="font-size:11px;padding:2px 4px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:var(--bg-input);color:var(--text);cursor:pointer"><option value="">+ Schedule</option><option value="Steve">Steve</option><option value="Drew">Drew</option><option value="Both">Both</option></select>`}
@@ -238,6 +242,58 @@ export async function renderCalendar(el) {
     </div>`;
   }
 
+
+
+  function renderAddEventPanel() {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return `<div class="cal-add-panel" id="cal-add-evt-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-weight:700;font-size:14px;color:var(--text)">Add event</span>
+        <button id="cal-evt-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px">&times;</button>
+      </div>
+      <div id="cal-evt-body">
+        <div style="margin-bottom:10px">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">Event title *</label>
+          <input id="evt-add-title" class="cal-input" placeholder="ICOPA Annual Conference" />
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <div style="flex:1">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">Start date *</label>
+            <input id="evt-add-date" type="date" class="cal-input" value="${todayStr}" />
+          </div>
+          <div style="flex:1">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">End date</label>
+            <input id="evt-add-end" type="date" class="cal-input" />
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">Location</label>
+          <input id="evt-add-location" class="cal-input" placeholder="Boise, ID" />
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">URL</label>
+          <input id="evt-add-url" class="cal-input" placeholder="https://example.org/event" />
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">Description</label>
+          <textarea id="evt-add-desc" class="cal-input" rows="2" style="resize:vertical" placeholder="Optional notes about the event"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <div style="flex:2">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">Organization</label>
+            <input id="evt-add-org" class="cal-input" placeholder="ICOPA" />
+          </div>
+          <div style="flex:1">
+            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">Color</label>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px" id="evt-add-colors"></div>
+          </div>
+        </div>
+        <div id="evt-add-error" style="display:none;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:6px;padding:8px;margin-bottom:10px;font-size:12px;color:#FCA5A5"></div>
+        <button id="evt-add-save" class="cal-primary-btn">Save event</button>
+      </div>
+    </div>`;
+  }
+
   let editingEvent = false;
 
   function renderEventModal(e) {
@@ -302,7 +358,7 @@ export async function renderCalendar(el) {
         <div style="display:flex;gap:8px">
           ${e.scheduled
             ? `<span style="font-size:13px;color:var(--green,#059669);font-weight:600;padding:8px 0">&#10003; On your schedule</span><button id="cal-modal-unsched" data-uid="${e.id}" style="font-size:13px;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:4px 10px;margin-left:8px">Remove</button>`
-            : `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;color:var(--text-secondary)">Assign:</span><select id="cal-modal-assign" style="font-size:13px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:var(--bg-input);color:var(--text)"><option value="">—</option><option value="Steve">Steve</option><option value="Drew">Drew</option><option value="Both">Both</option></select><button class="cal-primary-btn" id="cal-modal-sched" data-sid="${e.id}">+ Add to schedule</button></div>`}
+            : `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;color:var(--text-secondary)">Assign:</span><select id="cal-modal-assign" style="font-size:13px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:var(--bg-input);color:var(--text)">${assigneeOptions("", true)}</select><button class="cal-primary-btn" id="cal-modal-sched" data-sid="${e.id}">+ Add to schedule</button></div>`}
         </div>
       </div>
     </div>`;
@@ -312,6 +368,7 @@ export async function renderCalendar(el) {
     let html = renderStats();
     html += renderFilters();
     if (showAddSource) html += renderAddSourcePanel();
+    if (showAddEvent) html += renderAddEventPanel();
     if (!calView) html += renderModeToggle();
     html += `<div id="cal-body">`;
     html += calView ? renderStatView() : (mode === "rolling" ? renderRolling() : renderMonth());
@@ -326,6 +383,10 @@ export async function renderCalendar(el) {
     el.querySelectorAll(".cal-stat-btn").forEach(card => {
       card.addEventListener("click", () => {
         const v = card.dataset.stat;
+        if (v === "overdue") {
+          navigate("schedule", { viewMode: "overdue" });
+          return;
+        }
         calView = calView === v ? null : v;
         draw();
       });
@@ -373,14 +434,23 @@ export async function renderCalendar(el) {
 
     // Add source toggle
     const addSrcBtn = el.querySelector("#cal-add-src-toggle");
-    if (addSrcBtn) addSrcBtn.addEventListener("click", () => { showAddSource = !showAddSource; draw(); });
+    if (addSrcBtn) addSrcBtn.addEventListener("click", () => { showAddSource = !showAddSource; showAddEvent = false; draw(); });
+
+    // Add event toggle
+    const addEvtBtn = el.querySelector("#cal-add-evt-toggle");
+    if (addEvtBtn) addEvtBtn.addEventListener("click", () => { showAddEvent = !showAddEvent; showAddSource = false; draw(); });
 
     // Add source close
     const addClose = el.querySelector("#cal-add-close");
     if (addClose) addClose.addEventListener("click", () => { showAddSource = false; draw(); });
 
+    // Add event close
+    const evtClose = el.querySelector("#cal-evt-close");
+    if (evtClose) evtClose.addEventListener("click", () => { showAddEvent = false; draw(); });
+
     // Add source panel logic
     if (showAddSource) bindAddSource();
+    if (showAddEvent) bindAddEvent();
 
     // Schedule buttons
     el.querySelectorAll(".cal-assign-sel").forEach(sel => {
@@ -539,6 +609,68 @@ export async function renderCalendar(el) {
       stats.scheduled = Math.max(0, (stats.scheduled || 0) - 1);
       selectedEvent = evt;
       draw();
+    });
+  }
+
+
+  function bindAddEvent() {
+    let evtColor = "#475569";
+    const colorsEl = el.querySelector("#evt-add-colors");
+    const saveBtn = el.querySelector("#evt-add-save");
+    const errEl = el.querySelector("#evt-add-error");
+
+    if (!colorsEl) return;
+
+    colorsEl.innerHTML = COLORS.map(c =>
+      `<div class="cal-color-swatch ${evtColor === c.h ? 'active' : ''}" data-color="${c.h}" style="background:${c.h};width:20px;height:20px" title="${c.l}"></div>`
+    ).join("");
+    colorsEl.querySelectorAll(".cal-color-swatch").forEach(sw => {
+      sw.addEventListener("click", () => {
+        evtColor = sw.dataset.color;
+        colorsEl.querySelectorAll(".cal-color-swatch").forEach(s => s.classList.remove("active"));
+        sw.classList.add("active");
+      });
+    });
+
+    saveBtn.addEventListener("click", async () => {
+      const title = el.querySelector("#evt-add-title").value.trim();
+      const event_date = el.querySelector("#evt-add-date").value;
+      const end_date = el.querySelector("#evt-add-end").value;
+      const location = el.querySelector("#evt-add-location").value.trim();
+      const url = el.querySelector("#evt-add-url").value.trim();
+      const description = el.querySelector("#evt-add-desc").value.trim();
+      const org = el.querySelector("#evt-add-org").value.trim() || "Manual";
+
+      if (!title || !event_date) {
+        errEl.textContent = "Title and start date are required";
+        errEl.style.display = "block";
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving...";
+      errEl.style.display = "none";
+
+      try {
+        const params = new URLSearchParams();
+        params.set("title", title);
+        params.set("event_date", event_date);
+        if (end_date) params.set("end_date", end_date);
+        if (location) params.set("location", location);
+        if (url) params.set("url", url);
+        if (description) params.set("description", description);
+        params.set("org_name", org);
+        params.set("color", evtColor);
+
+        await api(`/calendar/events/manual?${params}`, { method: "POST" });
+        showAddEvent = false;
+        if (await loadData()) { draw(); }
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = "block";
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save event";
+      }
     });
   }
 

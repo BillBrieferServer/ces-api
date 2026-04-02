@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from routers import jurisdictions, officials, outreach, interactions, vendors, brief, search, geo, calendar, reports
+from routers import jurisdictions, officials, outreach, interactions, vendors, brief, search, geo, calendar, reports, admin
 from auth import (
     get_user_by_email,
     auth_router, set_templates as set_auth_templates, init_auth_db,
@@ -133,6 +133,8 @@ def current_user(request: Request) -> Optional[Dict[str, Any]]:
             expires_at = datetime.fromisoformat(expires_at)
         if expires_at <= datetime.utcnow():
             return None
+    if session.get("account_status") not in (None, "active"):
+        return None
     update_session_last_used(token_hash)
     return {
         "email": session.get("email", "").lower(),
@@ -229,6 +231,7 @@ app.include_router(search.router, prefix="/api")
 app.include_router(geo.router, prefix="/api")
 app.include_router(calendar.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(admin.router)
 
 # --- Static Files ---
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -268,173 +271,6 @@ async def icons(filename: str):
         raise HTTPException(status_code=400, detail="Invalid filename")
     return FileResponse(os.path.join(STATIC_DIR, "icons", filename))
 
-
-# --- Admin: Authorized Users ---
-DATA_DIR = Path("/opt/ces-api/data")
-ALLOWLIST_PATH = DATA_DIR / "allowlist_emails.txt"
-MANUAL_USERS_PATH = DATA_DIR / "manual_users.json"
-
-def _load_allowlist_emails() -> list:
-    if not ALLOWLIST_PATH.exists():
-        return []
-    return [l.strip().lower() for l in ALLOWLIST_PATH.read_text().splitlines() if l.strip() and "@" in l.strip()]
-
-def _save_allowlist_emails(emails: list):
-    ALLOWLIST_PATH.write_text(chr(10).join(sorted(set(emails))) + chr(10))
-
-
-def _load_manual_users() -> dict:
-    if not MANUAL_USERS_PATH.exists():
-        return {}
-    try:
-        return json.loads(MANUAL_USERS_PATH.read_text())
-    except Exception:
-        return {}
-
-def _save_manual_users(users: dict):
-    MANUAL_USERS_PATH.write_text(json.dumps(users, indent=2) + chr(10))
-
-
-def _save_admin_emails(emails: set):
-    ADMIN_ALLOWLIST_PATH.write_text(chr(10).join(sorted(emails)) + chr(10))
-
-
-def _get_users_list(current_email: str) -> list:
-    allowlist = _load_allowlist_emails()
-    manual = _load_manual_users()
-    admins = _load_admin_allowlist()
-    users = []
-    for email in sorted(set(allowlist)):
-        user_info = manual.get(email, {})
-        db_user = get_user_by_email(email)
-        users.append({
-            "email": email,
-            "name": user_info.get("name", db_user.get("name", "") if db_user else ""),
-            "registered": db_user is not None,
-            "is_admin": email in admins,
-            "is_self": email == current_email,
-        })
-    return users
-
-@app.get("/admin/users")
-async def admin_users_page(request: Request):
-    redir = require_admin(request)
-    if redir:
-        return redir
-    user = current_user(request)
-    return templates.TemplateResponse("admin_users.html", {
-        "request": request,
-        "users": _get_users_list(user["email"]),
-        "error": request.query_params.get("error"),
-        "success": request.query_params.get("success"),
-    })
-
-@app.post("/admin/users/add")
-async def admin_users_add(request: Request, email: str = Form(...), name: str = Form(""), is_admin: str = Form(""), csrf_token: str = Form("")):
-    redir = require_admin(request)
-    if redir:
-        return redir
-    if not _require_csrf(request, csrf_token):
-        return RedirectResponse(url="/admin/users?error=Invalid+request", status_code=302)
-    email = email.strip().lower()
-    if not email or "@" not in email:
-        return RedirectResponse(url="/admin/users?error=Invalid+email", status_code=302)
-    # Add to allowlist
-    emails = _load_allowlist_emails()
-    if email in emails:
-        return RedirectResponse(url="/admin/users?error=User+already+authorized", status_code=302)
-    emails.append(email)
-    _save_allowlist_emails(emails)
-    # Add to manual_users with name
-    if name.strip():
-        manual = _load_manual_users()
-        manual[email] = {"name": name.strip()}
-        _save_manual_users(manual)
-    # Add to admin if checked
-    if is_admin == "1":
-        admins = _load_admin_allowlist()
-        admins.add(email)
-        _save_admin_emails(admins)
-    return RedirectResponse(url=f"/admin/users?success={email}+added", status_code=302)
-
-@app.post("/admin/users/remove")
-async def admin_users_remove(request: Request, email: str = Form(...), csrf_token: str = Form("")):
-    redir = require_admin(request)
-    if redir:
-        return redir
-    if not _require_csrf(request, csrf_token):
-        return RedirectResponse(url="/admin/users?error=Invalid+request", status_code=302)
-    email = email.strip().lower()
-    me = current_user(request)
-    if email == me.get("email"):
-        return RedirectResponse(url="/admin/users?error=Cannot+remove+yourself", status_code=302)
-    # Remove from allowlist
-    emails = _load_allowlist_emails()
-    emails = [e for e in emails if e != email]
-    _save_allowlist_emails(emails)
-    # Remove from manual_users
-    manual = _load_manual_users()
-    manual.pop(email, None)
-    _save_manual_users(manual)
-    # Remove from admins
-    admins = _load_admin_allowlist()
-    admins.discard(email)
-    _save_admin_emails(admins)
-    return RedirectResponse(url=f"/admin/users?success={email}+removed", status_code=302)
-
-@app.post("/admin/users/promote")
-async def admin_users_promote(request: Request, email: str = Form(...), csrf_token: str = Form("")):
-    redir = require_admin(request)
-    if redir:
-        return redir
-    if not _require_csrf(request, csrf_token):
-        return RedirectResponse(url="/admin/users?error=Invalid+request", status_code=302)
-    email = email.strip().lower()
-    admins = _load_admin_allowlist()
-    admins.add(email)
-    _save_admin_emails(admins)
-    return RedirectResponse(url=f"/admin/users?success={email}+promoted+to+admin", status_code=302)
-
-@app.post("/admin/users/demote")
-async def admin_users_demote(request: Request, email: str = Form(...), csrf_token: str = Form("")):
-    redir = require_admin(request)
-    if redir:
-        return redir
-    if not _require_csrf(request, csrf_token):
-        return RedirectResponse(url="/admin/users?error=Invalid+request", status_code=302)
-    email = email.strip().lower()
-    me = current_user(request)
-    if email == me.get("email"):
-        return RedirectResponse(url="/admin/users?error=Cannot+remove+your+own+admin+access", status_code=302)
-    admins = _load_admin_allowlist()
-    admins.discard(email)
-    _save_admin_emails(admins)
-    return RedirectResponse(url=f"/admin/users?success=Admin+removed+from+{email}", status_code=302)
-
-# --- Request Access ---
-@app.get("/auth/request-access")
-async def request_access_page(request: Request):
-    return templates.TemplateResponse("auth/request_access.html", {"request": request})
-
-@app.post("/auth/request-access")
-async def request_access_submit(request: Request, name: str = Form(""), email: str = Form(""), csrf_token: str = Form("")):
-    if not _require_csrf(request, csrf_token):
-        return templates.TemplateResponse("auth/request_access.html", {"request": request, "error": "Invalid request. Please try again."})
-    name = name.strip()
-    email = email.strip().lower()
-    if not name or not email or "@" not in email:
-        return templates.TemplateResponse("auth/request_access.html", {"request": request, "error": "Please enter both your name and a valid email."})
-    from auth.auth_email import send_email
-    from datetime import datetime
-    body = f"""New access request for CES Idaho:
-
-Name:  {name}
-Email: {email}
-Time:  {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
-
-To approve, log in to https://ces.quietimpact.ai/admin/users and add this email to the authorized users list."""
-    send_email("steve@quietimpact.ai", f"CES Access Request: {name} ({email})", body)
-    return templates.TemplateResponse("auth/request_access.html", {"request": request, "success": True})
 
 # --- SPA Fallback ---
 @app.get("/")

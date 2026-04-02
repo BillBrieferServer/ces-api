@@ -184,20 +184,6 @@ def validate_email(email: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def is_legislative_email(email: str) -> bool:
-    """Check if email is an official Idaho Legislature email."""
-    email = email.strip().lower()
-    legislative_domains = [
-        '@legislature.idaho.gov',
-        '@house.idaho.gov',
-        '@senate.idaho.gov',
-    ]
-    return any(email.endswith(domain) for domain in legislative_domains)
-
-
-# ============================================================================
-# RATE LIMITING HELPERS
-# ============================================================================
 
 def check_rate_limit(
     current_count: int,

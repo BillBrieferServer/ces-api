@@ -1,41 +1,5 @@
+import { fmt12, SCHED_BADGE, showContactPopup, fetchAndShowContact, assigneeOptions, schedEditFormHTML, saveScheduleEdit } from "../shared.js";
 import { api, navigate, formatDate, badge, showToast } from "../app.js";
-function fmt12(t) {
-  if (!t) return "";
-  const [h, m] = t.slice(0,5).split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const hr = h % 12 || 12;
-  return hr + ":" + String(m).padStart(2, "0") + " " + ampm;
-}
-
-
-const SCHED_BADGE = {
-  entity_visit: { label: "Visit", bg: "rgba(5,150,105,0.2)", color: "#059669" },
-  follow_up:    { label: "Follow-up", bg: "rgba(37,99,235,0.2)", color: "#2563EB" },
-  presentation: { label: "Present", bg: "rgba(109,40,217,0.2)", color: "#6D28D9" },
-  event:        { label: "Event", bg: "rgba(13,148,136,0.2)", color: "#0D9488" },
-  custom:       { label: "Custom", bg: "rgba(71,85,105,0.2)", color: "#475569" },
-};
-
-function showContactPopup(anchorEl, info) {
-  document.querySelectorAll(".sched-contact-popup").forEach(p => p.remove());
-  const popup = document.createElement("div");
-  popup.className = "sched-contact-popup";
-  popup.style.cssText = "position:fixed;z-index:1000;background:var(--bg-card,#1e1e2e);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px 16px;min-width:240px;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,0.4);font-size:13px;";
-  let h = `<div style="font-weight:700;font-size:14px;margin-bottom:8px">${info.name}</div>`;
-  if (info.title) h += `<div style="color:var(--text-dim);font-size:12px;margin-bottom:8px">${info.title}</div>`;
-  if (info.phone) h += `<div style="margin-bottom:4px"><a href="tel:${info.phone}" style="color:var(--accent);text-decoration:none">${info.phone}</a> <span style="color:var(--text-dim);font-size:11px">work</span></div>`;
-  if (info.cell_phone) h += `<div style="margin-bottom:4px"><a href="tel:${info.cell_phone}" style="color:var(--accent);text-decoration:none">${info.cell_phone}</a> <span style="color:var(--text-dim);font-size:11px">cell</span></div>`;
-  if (info.email) h += `<div style="margin-bottom:4px"><a href="mailto:${info.email}" style="color:var(--accent);text-decoration:none">${info.email}</a></div>`;
-  if (info.address) h += `<div style="font-size:12px;margin-top:6px"><a href="https://maps.google.com/?q=${encodeURIComponent(info.address)}" target="_blank" style="color:var(--accent);text-decoration:none">${info.address}</a></div>`;
-  popup.innerHTML = h;
-  document.body.appendChild(popup);
-  const rect = anchorEl.getBoundingClientRect();
-  popup.style.left = Math.min(rect.left, window.innerWidth - 340) + "px";
-  popup.style.top = (rect.bottom + 6) + "px";
-  const closer = (e) => { if (!popup.contains(e.target) && e.target !== anchorEl) { popup.remove(); document.removeEventListener("click", closer); } };
-  setTimeout(() => document.addEventListener("click", closer), 10);
-}
-
 function schedCard(item, overdue, editing) {
   const b = SCHED_BADGE[item.item_type] || SCHED_BADGE.custom;
 
@@ -201,9 +165,11 @@ export async function renderBrief(el) {
           : `<span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(37,99,235,0.2);color:#2563EB">Entity</span>`;
         const priorityBadge = a.priority ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:4px;background:rgba(234,179,8,0.2);color:#EAB308">${a.priority}</span>` : "";
         const actionLabel = a.next_action_type ? a.next_action_type.replace(/_/g, " ") : "Action";
-        const navAttr = isVendor ? `onclick="window.location.hash='#vendors/${a.vendor_id}'"` : `data-jid="${a.jurisdiction_id}"`;
+        const navAttr = isVendor ? `data-vendor-nav="1"` : `data-jid="${a.jurisdiction_id}"`;
 
-        html += `<div class="list-item" style="cursor:pointer" ${navAttr}>
+        const dismissId = isVendor ? a.vendor_id : a.jurisdiction_id;
+        html += `<div class="list-item" style="cursor:pointer;position:relative" ${navAttr}>
+          <button class="brief-action-dismiss" data-source="${a.source}" data-id="${dismissId}" title="Clear action item" style="position:absolute;top:6px;right:8px;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:4px;z-index:2">&times;</button>
           <div class="list-item-title">${a.entity_name || "Unknown"} ${srcBadge} ${priorityBadge}</div>
           <div class="list-item-sub">${actionLabel}${a.notes ? " — " + a.notes : ""}</div>
           <div class="list-item-meta">
@@ -314,10 +280,35 @@ export async function renderBrief(el) {
 
     // Jurisdiction list items
     el.querySelectorAll("[data-jid]").forEach(item => {
-      item.addEventListener("click", () => {
+      item.addEventListener("click", (e) => {
+        if (e.target.closest(".brief-action-dismiss")) return;
         const jid = item.dataset.jid;
         const name = item.querySelector(".list-item-title")?.textContent || "";
         navigate("jurisdiction-detail", { id: jid, name });
+      });
+    });
+
+    // Vendor action item clicks -> navigate to vendors tab
+    el.querySelectorAll("[data-vendor-nav]").forEach(item => {
+      item.addEventListener("click", (e) => {
+        if (e.target.closest(".brief-action-dismiss")) return;
+        navigate("vendors");
+      });
+    });
+
+    // Dismiss action items (clear next_action_date)
+    el.querySelectorAll(".brief-action-dismiss").forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const source = btn.dataset.source;
+        const id = btn.dataset.id;
+        if (source === "vendor") {
+          await api(`/vendors/${id}`, { method: "PUT", body: {next_action_date: null, next_action_type: null} });
+        } else {
+          await api(`/outreach/${id}`, { method: "PUT", body: {next_action_date: null, next_action_type: null} });
+        }
+        showToast("Action item cleared");
+        await renderAll();
       });
     });
   }

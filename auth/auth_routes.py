@@ -44,7 +44,6 @@ from . import (
     get_trusted_device,
     update_trusted_device_last_used,
     delete_trusted_device,
-    delete_all_user_trusted_devices,
     # Login attempts
     log_login_attempt,
     count_failed_attempts,
@@ -1395,7 +1394,6 @@ async def remove_all_trusted_devices(request: Request):
     count = len(trusted_devices)
 
     if count > 0:
-        delete_all_user_trusted_devices(user["user_id"])
         log_security_event(user["user_id"], "trusted_devices_removed_all",
                            f"Removed {count} trusted device(s)",
                            get_client_ip(request), get_user_agent(request))

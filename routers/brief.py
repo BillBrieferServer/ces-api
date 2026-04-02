@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 
 from database import get_db
+from utils import get_user_name
 from models import InteractionListItem
 
 from zoneinfo import ZoneInfo
@@ -14,28 +15,10 @@ _MT = ZoneInfo('America/Boise')
 
 router = APIRouter(tags=["brief"])
 
-
-def _get_user_name(request: Request) -> Optional[str]:
-    """Get logged-in user first name for brief filtering."""
-    try:
-        from auth import get_session_by_token_hash
-        from auth.auth_security import hash_token
-        token = request.cookies.get("bb_session")
-        if not token:
-            return None
-        session = get_session_by_token_hash(hash_token(token))
-        if not session:
-            return None
-        name = session.get("name", "")
-        return name.split()[0] if name else None
-    except Exception:
-        return None
-
-
 @router.get("/brief")
 async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     today = datetime.now(_MT).date()
-    user_first = _get_user_name(request)
+    user_first = get_user_name(request)
 
     # Schedule: overdue items (before today, not completed)
     result = await db.execute(text("""

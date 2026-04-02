@@ -12,6 +12,7 @@ class JurisdictionListItem(BaseModel):
     employee_count: Optional[int] = None
     aic_district: Optional[int] = None
     status: Optional[str] = None
+    grades: Optional[str] = None
     assigned_rm: Optional[str] = None
 class OfficialSummary(BaseModel):
     official_id: int
@@ -60,9 +61,11 @@ class ProfileUpdate(BaseModel):
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
     website_url: Optional[str] = None
+    grades: Optional[str] = None
 
 class OutreachDetail(BaseModel):
     status: Optional[str] = None
+    grades: Optional[str] = None
     assigned_rm: Optional[str] = None
     priority: Optional[str] = None
     first_contact_date: Optional[date] = None
@@ -77,6 +80,7 @@ class JurisdictionDetail(BaseModel):
     type: str
     county_name: Optional[str] = None
     website_url: Optional[str] = None
+    grades: Optional[str] = None
     profile: Optional[ProfileDetail] = None
     outreach: Optional[OutreachDetail] = None
     officials: list[OfficialSummary] = []
@@ -202,19 +206,6 @@ class VendorPipelineUpdate(BaseModel):
 
 # ── Morning Brief ──
 
-class PipelineCount(BaseModel):
-    status: str
-    count: int
-class MorningBrief(BaseModel):
-    today: date
-    schedule_overdue: list[dict] = []
-    schedule_today: list[dict] = []
-    schedule_upcoming: list[dict] = []
-    pending_followups: list[InteractionListItem] = []
-    upcoming_actions: list[dict] = []
-    pipeline_summary: list[PipelineCount] = []
-    recent_interactions: list[InteractionListItem] = []
-# ── Official Create/Update ──
 
 class OfficialCreate(BaseModel):
     jurisdiction_id: int
