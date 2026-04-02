@@ -69,12 +69,13 @@ export function fmtType(t) {
 
 // ── Entity type display order ──
 export const ENTITY_TYPE_ORDER = [
-  "city", "county", "charter_school", "fire_district", "highway_district", "school_district",
-  "alternative_school", "cemetery_district", "irrigation_district", "library_district",
-  "soil_water_district", "recreation_district", "water_district", "drainage_district",
-  "sewer_district", "sewer_water_district", "flood_control_district", "housing_authority",
-  "hospital_district", "health_district", "natural_resource_district", "solid_waste_district",
-  "special_district", "airport_authority", "transit_authority", "port_authority"
+  "county", "city", "school_district", "alternative_school", "charter_school",
+  "airport_authority", "cemetery_district", "drainage_district", "fire_district",
+  "flood_control_district", "health_district", "highway_district", "hospital_district",
+  "housing_authority", "irrigation_district", "library_district", "natural_resource_district",
+  "port_authority", "recreation_district", "sewer_district", "sewer_water_district",
+  "soil_water_district", "solid_waste_district", "special_district", "transit_authority",
+  "water_district"
 ];
 
 // ── Name utilities ──
