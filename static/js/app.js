@@ -170,7 +170,7 @@ export function badge(text) {
 
 export function formatDate(d) {
   if (!d) return "";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const [y,m,dy] = d.split("-").map(Number); return new Date(y, m-1, dy).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 // Nav button handlers
