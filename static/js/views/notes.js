@@ -31,8 +31,8 @@ const TYPE_LABEL = { entity: "Entity", official: "Official", vendor: "Vendor", e
 const TYPE_COLOR = { entity: "#3b82f6", official: "#10b981", vendor: "#f59e0b", event: "#a855f7" };
 
 const RM_LIST = [
-  { email: "steve@quietimpact.ai", name: "Steve" },
-  { email: "sbrown@ces.org", name: "Drew" },
+  { email: "sbrown@ces.org", name: "Steve" },
+  { email: "devans@ces.org", name: "Drew" },
 ];
 function rmName(email) {
   const r = RM_LIST.find(x => x.email === email);
@@ -133,6 +133,22 @@ export async function renderNotes(el, params = {}) {
       render();
     } catch (err) {
       showToast("Save failed");
+    }
+  }
+
+  async function appendNote() {
+    if (!editing.note_id) return;
+    const ta = document.getElementById("note-append-text");
+    const txt = (ta.value || "").trim();
+    if (!txt) return;
+    try {
+      editing = await api("/notes/" + editing.note_id + "/append", { method: "POST", body: { text: txt } });
+      editing._preview = false;
+      editing._appendOpen = false;
+      showToast("Appended");
+      render();
+    } catch (err) {
+      showToast("Append failed");
     }
   }
 
@@ -258,9 +274,20 @@ export async function renderNotes(el, params = {}) {
     html += '<button class="btn" id="note-back">&larr; Back</button>';
     html += '<div style="flex:1"></div>';
     html += '<button class="btn" id="note-preview-toggle">' + (e._preview ? 'Edit' : 'Preview') + '</button>';
+    if (!isNew) html += '<button class="btn btn-primary" id="note-append-toggle">+ Append</button>';
     if (!isNew && canEdit) html += '<button class="btn" id="note-delete" style="color:#dc2626">Delete</button>';
     if (canEdit) html += '<button class="btn btn-primary" id="note-save">Save</button>';
     html += '</div>';
+
+    if (e._appendOpen) {
+      html += '<div style="background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;padding:12px;margin-bottom:12px">';
+      html += '<div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600">APPEND ENTRY</div>';
+      html += '<textarea id="note-append-text" class="form-input" placeholder="Add an update (will be timestamped)..." style="width:100%;min-height:80px;padding:10px;font-size:13px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px"></textarea>';
+      html += '<div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">';
+      html += '<button class="btn" id="note-append-cancel">Cancel</button>';
+      html += '<button class="btn btn-primary" id="note-append-submit">Add Entry</button>';
+      html += '</div></div>';
+    }
 
     html += '<input type="text" id="note-title" class="form-input" placeholder="Title (optional)" value="' + escapeHtml(e.title || '') + '"' + (canEdit ? '' : ' readonly') + ' style="width:100%;padding:10px;font-size:16px;font-weight:600;margin-bottom:8px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px">';
 
@@ -332,6 +359,22 @@ export async function renderNotes(el, params = {}) {
     });
     const saveBtn = document.getElementById("note-save");
     if (saveBtn) saveBtn.addEventListener("click", saveNote);
+    const appendToggleBtn = document.getElementById("note-append-toggle");
+    if (appendToggleBtn) appendToggleBtn.addEventListener("click", () => {
+      e._appendOpen = !e._appendOpen;
+      render();
+      if (e._appendOpen) {
+        const ta = document.getElementById("note-append-text");
+        if (ta) ta.focus();
+      }
+    });
+    const appendSubmitBtn = document.getElementById("note-append-submit");
+    if (appendSubmitBtn) appendSubmitBtn.addEventListener("click", appendNote);
+    const appendCancelBtn = document.getElementById("note-append-cancel");
+    if (appendCancelBtn) appendCancelBtn.addEventListener("click", () => {
+      e._appendOpen = false;
+      render();
+    });
     const delBtn = document.getElementById("note-delete");
     if (delBtn) delBtn.addEventListener("click", deleteNote);
     const fudDone = document.getElementById("note-fud-done");

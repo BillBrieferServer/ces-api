@@ -6,8 +6,8 @@ import { renderBrief } from "./views/brief.js?v=1775174500";
 import { renderJurisdictions } from "./views/jurisdictions.js?v=1775174500";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1775578025";
 import { renderOfficials } from "./views/officials.js?v=1775578025";
-import { renderVendors } from "./views/vendors.js?v=1775578025";
-import { renderNotes } from "./views/notes.js?v=1775578025";
+import { renderVendors } from "./views/vendors.js?v=1775580219";
+import { renderNotes } from "./views/notes.js?v=1775582179";
 import { renderMap } from "./views/map.js?v=1775174500";
 
 const content = document.getElementById("content");

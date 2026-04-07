@@ -228,6 +228,34 @@ async def update_note(note_id: int, data: NoteUpdate, request: Request, db: Asyn
     return await get_note(note_id, request, db)
 
 
+@router.post('/{note_id}/append', response_model=NoteDetail)
+async def append_to_note(note_id: int, data: dict, request: Request, db: AsyncSession = Depends(get_db)):
+    """Append a timestamped entry to a note. Available to owner OR sharees."""
+    email = _user_email(request)
+    text_in = (data.get('text') or '').strip()
+    if not text_in:
+        raise HTTPException(status_code=400, detail='Empty text')
+
+    r = await db.execute(text('SELECT note_id, body FROM ces.notes WHERE note_id = :nid AND (user_email = :email OR :email = ANY(shared_with))'),
+                         {'nid': note_id, 'email': email})
+    row = r.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail='Note not found')
+
+    from datetime import datetime
+    stamp = datetime.now().strftime('%b %d, %Y %I:%M %p').lstrip('0').replace(' 0', ' ')
+    rm_names = {'sbrown@ces.org': 'Steve', 'devans@ces.org': 'Drew'}
+    author = rm_names.get(email, email.split('@')[0])
+    nl = chr(10)
+    em = chr(8212)
+    appended = nl + nl + '---' + nl + '**' + stamp + ' ' + em + ' ' + author + '**' + nl + text_in
+    new_body = (row['body'] or '') + appended
+
+    await db.execute(text('UPDATE ces.notes SET body = :b, updated_at = now() WHERE note_id = :nid'),
+                     {'b': new_body, 'nid': note_id})
+    await db.commit()
+    return await get_note(note_id, request, db)
+
 @router.delete('/{note_id}', status_code=204)
 async def delete_note(note_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     email = _user_email(request)

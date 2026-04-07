@@ -75,7 +75,7 @@ export async function renderVendors(el) {
       }
     } else {
       // Intelligence view — all vendors search
-      html += `<input class="search-bar" type="search" placeholder="Search vendors..." id="v-search" style="margin-bottom:8px">`;
+      html += `<input class="search-bar" type="search" placeholder="Search vendors..." id="v-search" style="margin-bottom:8px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px;padding:10px">`;
       html += `<div id="v-intel-list">`;
       data.forEach(v => {
         html += `<div class="list-item" style="display:flex;justify-content:space-between;align-items:center">
