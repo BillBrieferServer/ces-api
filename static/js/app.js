@@ -4,9 +4,10 @@ import { renderReports } from "./views/reports.js?v=1775174500";
 import { renderCalendar } from "./views/calendar.js?v=1775062675";
 import { renderBrief } from "./views/brief.js?v=1775174500";
 import { renderJurisdictions } from "./views/jurisdictions.js?v=1775174500";
-import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1775174500";
-import { renderOfficials } from "./views/officials.js?v=1775174500";
-import { renderVendors } from "./views/vendors.js?v=1775174500";
+import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1775576329";
+import { renderOfficials } from "./views/officials.js?v=1775576329";
+import { renderVendors } from "./views/vendors.js?v=1775576329";
+import { renderNotes } from "./views/notes.js?v=1775576329";
 import { renderMap } from "./views/map.js?v=1775174500";
 
 const content = document.getElementById("content");
@@ -116,6 +117,11 @@ function render(view, params) {
       headerTitle.textContent = "Officials";
       backBtn.classList.add("hidden");
       renderOfficials(content);
+      break;
+    case "notes":
+      headerTitle.textContent = "Notes";
+      backBtn.classList.add("hidden");
+      renderNotes(content, params);
       break;
     case "vendors":
       headerTitle.textContent = "Vendors";

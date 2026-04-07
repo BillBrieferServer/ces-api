@@ -1,5 +1,5 @@
 import { api, phoneLink, emailLink, badge, formatDate, showToast } from "../app.js";
-import { lastFirst, getLastName, PRIORITY_COLORS, ACTION_TYPES, assigneeOptions, showScheduleModal } from "../shared.js";
+import { lastFirst, getLastName, PRIORITY_COLORS, ACTION_TYPES, assigneeOptions, showScheduleModal, renderLinkedNotesSection } from "../shared.js";
 
 export async function renderJurisdictionDetail(el, id) {
   try {
@@ -78,6 +78,9 @@ export async function renderJurisdictionDetail(el, id) {
       </div>
       <button class="btn btn-primary btn-block" id="save-outreach">Save Outreach</button>
     </div>`;
+
+    // Linked Notes placeholder (populated after render)
+    html += `<div id="linked-notes-container"></div>`;
 
     // Officials
     html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">
@@ -181,6 +184,10 @@ export async function renderJurisdictionDetail(el, id) {
     }
 
     el.innerHTML = html;
+
+    // Populate linked notes (lazy)
+    renderLinkedNotesSection(document.getElementById('linked-notes-container'), 'entity', id, j.name);
+
 
     // Render officials list
     const officialsList = el.querySelector("#officials-list");

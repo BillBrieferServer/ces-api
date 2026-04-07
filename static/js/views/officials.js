@@ -1,5 +1,5 @@
 import { api, navigate, phoneLink, emailLink, showToast } from "../app.js";
-import { lastFirst, showScheduleModal } from "../shared.js";
+import { lastFirst, showScheduleModal, renderLinkedNotesSection } from "../shared.js";
 
 
 
@@ -128,6 +128,7 @@ function showEditOfficialModal(officialId, existing, refreshFn) {
         <label class="form-label">Email</label>
         <input class="form-input" id="off-email" type="email" value="${existing.email || ""}" placeholder="name@example.com">
       </div>
+      <div id="official-linked-notes" style="margin:12px 0"></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-block" id="off-delete" style="background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid #DC2626;flex:1">Delete</button>
         <button class="btn btn-primary btn-block" id="off-submit" style="flex:2">Save Changes</button>
@@ -135,6 +136,8 @@ function showEditOfficialModal(officialId, existing, refreshFn) {
     </div>
   `;
   document.body.appendChild(overlay);
+
+  renderLinkedNotesSection(overlay.querySelector("#official-linked-notes"), "official", officialId, existing.name);
 
   overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });

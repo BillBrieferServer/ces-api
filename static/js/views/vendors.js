@@ -1,5 +1,5 @@
 import { api, navigate, phoneLink, emailLink, badge, formatDate, showToast } from "../app.js";
-import { assigneeOptions, showScheduleModal } from "../shared.js";
+import { assigneeOptions, showScheduleModal, renderLinkedNotesSection } from "../shared.js";
 
 const PIPELINE_COLORS = {
   prospect: { bg: "rgba(100,116,139,0.2)", color: "#64748B" },
@@ -380,9 +380,15 @@ export async function renderVendors(el) {
           </div>
           <div style="display:flex;gap:8px"><button class="btn btn-block" id="vp-delete" style="background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid #DC2626;flex:1">Delete</button><button class="btn btn-primary btn-block" id="vp-save" style="flex:2">Save</button></div>
         </div>
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div id="vendor-linked-notes"></div>
+        </div>
       </div>
     `;
     document.body.appendChild(overlay);
+
+    renderLinkedNotesSection(overlay.querySelector("#vendor-linked-notes"), "vendor", vendorId, v.vendor_name);
 
     overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
     overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });

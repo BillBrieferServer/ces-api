@@ -237,3 +237,45 @@ class OfficialResponse(BaseModel):
     notes: Optional[str] = None
     source: Optional[str] = None
     source_date: Optional[date] = None
+
+# ── Notes ──
+
+class NoteLinkRef(BaseModel):
+    target_type: Literal['entity','official','vendor','event']
+    target_id: int
+
+class NoteLinkOut(NoteLinkRef):
+    target_name: Optional[str] = None
+
+class NoteCreate(BaseModel):
+    title: Optional[str] = None
+    body: str = ''
+    follow_up_date: Optional[date] = None
+    links: list[NoteLinkRef] = []
+
+class NoteUpdate(BaseModel):
+    title: Optional[str] = None
+    body: Optional[str] = None
+    follow_up_date: Optional[date] = None
+    follow_up_done: Optional[bool] = None
+    links: Optional[list[NoteLinkRef]] = None
+
+class NoteListItem(BaseModel):
+    note_id: int
+    title: Optional[str] = None
+    snippet: str = ''
+    created_at: datetime
+    updated_at: datetime
+    follow_up_date: Optional[date] = None
+    follow_up_done: bool = False
+    links: list[NoteLinkOut] = []
+
+class NoteDetail(BaseModel):
+    note_id: int
+    title: Optional[str] = None
+    body: str
+    created_at: datetime
+    updated_at: datetime
+    follow_up_date: Optional[date] = None
+    follow_up_done: bool = False
+    links: list[NoteLinkOut] = []

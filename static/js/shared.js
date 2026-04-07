@@ -284,3 +284,66 @@ export async function saveScheduleEdit(el, prefix, sid) {
   await api(`/calendar/schedule/${sid}?${params}`, { method: "PATCH" });
   return true;
 }
+
+
+// ── Linked Notes Section (for entity/official/vendor detail pages) ──
+import { api as _notes_api, navigate as _notes_nav, formatDate as _notes_date } from "./app.js";
+
+export async function renderLinkedNotesSection(container, target_type, target_id, target_name) {
+  if (!container) return;
+  container.innerHTML = '<div style="padding:12px;color:var(--text-dim);font-size:0.85rem">Loading notes...</div>';
+  let notes = [];
+  try {
+    notes = await _notes_api('/notes?target_type=' + target_type + '&target_id=' + encodeURIComponent(target_id));
+  } catch (err) {
+    container.innerHTML = '';
+    return;
+  }
+
+  let html = '';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">';
+  html += '<span class="section-header" style="margin:0">Notes (' + notes.length + ')</span>';
+  html += '<button class="btn btn-primary btn-sm" id="ln-add-btn">+ Note</button>';
+  html += '</div>';
+
+  if (notes.length === 0) {
+    html += '<div style="padding:14px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:var(--text-dim);font-size:0.85rem">No notes yet. Click + Note to add one.</div>';
+  } else {
+    const visible = notes.slice(0, 5);
+    for (const n of visible) {
+      let fu = '';
+      if (n.follow_up_date) {
+        const color = n.follow_up_done ? 'var(--text-dim)' : '#f87171';
+        const label = n.follow_up_done ? 'Done' : 'Due';
+        fu = '<div style="font-size:0.75rem;color:' + color + ';margin-top:4px">' + label + ': ' + _notes_date(n.follow_up_date) + '</div>';
+      }
+      html += '<div class="ln-card" data-id="' + n.note_id + '" style="background:var(--bg-card);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:start;gap:8px">';
+      html += '<div style="flex:1;min-width:0">';
+      html += '<div style="font-weight:600;font-size:0.9rem;margin-bottom:4px">' + (n.title ? n.title.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) : 'Untitled') + '</div>';
+      html += '<div style="font-size:0.8rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (n.snippet || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</div>';
+      html += fu;
+      html += '</div>';
+      html += '<div style="font-size:0.7rem;color:var(--text-dim);white-space:nowrap">' + _notes_date(n.updated_at) + '</div>';
+      html += '</div></div>';
+    }
+    if (notes.length > 5) {
+      html += '<div style="text-align:center;padding:6px"><a href="#" id="ln-viewall" style="color:var(--accent);font-size:0.85rem;text-decoration:none">View all ' + notes.length + ' notes &rarr;</a></div>';
+    }
+  }
+  container.innerHTML = html;
+
+  document.getElementById('ln-add-btn').addEventListener('click', () => {
+    _notes_nav('notes', { openNew: true, prefillLink: { target_type, target_id, target_name } });
+  });
+  const va = document.getElementById('ln-viewall');
+  if (va) va.addEventListener('click', (e) => {
+    e.preventDefault();
+    _notes_nav('notes', { target_type, target_id, target_name });
+  });
+  container.querySelectorAll('.ln-card').forEach(card => {
+    card.addEventListener('click', () => {
+      _notes_nav('notes', { target_type, target_id, target_name });
+    });
+  });
+}
