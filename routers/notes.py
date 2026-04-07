@@ -106,7 +106,7 @@ async def list_notes(
     db: AsyncSession = Depends(get_db),
 ):
     email = _user_email(request)
-    where = ['n.user_email = :email']
+    where = ['(n.user_email = :email OR :email = ANY(n.shared_with))']
     params: dict = {'email': email}
 
     if q:
@@ -120,7 +120,7 @@ async def list_notes(
         where.append('n.follow_up_date IS NOT NULL AND n.follow_up_done = false')
 
     where_clause = 'WHERE ' + ' AND '.join(where)
-    sql = 'SELECT n.note_id, n.title, n.body, n.created_at, n.updated_at, n.follow_up_date, n.follow_up_done FROM ces.notes n ' + where_clause + ' ORDER BY n.updated_at DESC LIMIT 200'
+    sql = 'SELECT n.note_id, n.title, n.body, n.user_email AS owner_email, n.shared_with, n.created_at, n.updated_at, n.follow_up_date, n.follow_up_done FROM ces.notes n ' + where_clause + ' ORDER BY n.updated_at DESC LIMIT 200'
     r = await db.execute(text(sql), params)
     rows = [dict(x) for x in r.mappings().all()]
     note_ids = [row['note_id'] for row in rows]
@@ -136,6 +136,8 @@ async def list_notes(
             note_id=row['note_id'],
             title=row['title'],
             snippet=snippet,
+            owner_email=row['owner_email'],
+            shared_with=list(row['shared_with'] or []),
             created_at=row['created_at'],
             updated_at=row['updated_at'],
             follow_up_date=row['follow_up_date'],
@@ -148,7 +150,7 @@ async def list_notes(
 @router.get('/{note_id}', response_model=NoteDetail)
 async def get_note(note_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     email = _user_email(request)
-    r = await db.execute(text('SELECT note_id, title, body, created_at, updated_at, follow_up_date, follow_up_done FROM ces.notes WHERE note_id = :nid AND user_email = :email'),
+    r = await db.execute(text('SELECT note_id, title, body, user_email AS owner_email, shared_with, created_at, updated_at, follow_up_date, follow_up_done FROM ces.notes WHERE note_id = :nid AND (user_email = :email OR :email = ANY(shared_with))'),
                          {'nid': note_id, 'email': email})
     row = r.mappings().first()
     if not row:
@@ -159,6 +161,8 @@ async def get_note(note_id: int, request: Request, db: AsyncSession = Depends(ge
         note_id=row['note_id'],
         title=row['title'],
         body=row['body'] or '',
+        owner_email=row['owner_email'],
+        shared_with=list(row['shared_with'] or []),
         created_at=row['created_at'],
         updated_at=row['updated_at'],
         follow_up_date=row['follow_up_date'],
@@ -170,8 +174,8 @@ async def get_note(note_id: int, request: Request, db: AsyncSession = Depends(ge
 @router.post('', response_model=NoteDetail, status_code=201)
 async def create_note(data: NoteCreate, request: Request, db: AsyncSession = Depends(get_db)):
     email = _user_email(request)
-    r = await db.execute(text('INSERT INTO ces.notes (user_email, title, body, follow_up_date) VALUES (:email, :title, :body, :fud) RETURNING note_id, created_at, updated_at'),
-                         {'email': email, 'title': data.title, 'body': data.body or '', 'fud': data.follow_up_date})
+    r = await db.execute(text('INSERT INTO ces.notes (user_email, title, body, follow_up_date, shared_with) VALUES (:email, :title, :body, :fud, :sw) RETURNING note_id, created_at, updated_at'),
+                         {'email': email, 'title': data.title, 'body': data.body or '', 'fud': data.follow_up_date, 'sw': data.shared_with or []})
     row = r.mappings().first()
     note_id = row['note_id']
 
@@ -199,10 +203,10 @@ async def update_note(note_id: int, data: NoteUpdate, request: Request, db: Asyn
     fields = data.model_dump(exclude_unset=True)
     set_parts = []
     params: dict = {'nid': note_id}
-    for f in ('title', 'body', 'follow_up_date', 'follow_up_done'):
+    for f in ('title', 'body', 'follow_up_date', 'follow_up_done', 'shared_with'):
         if f in fields:
             set_parts.append(f + ' = :' + f)
-            params[f] = fields[f]
+            params[f] = fields[f] if f != 'shared_with' else (fields[f] or [])
     if set_parts:
         set_parts.append('updated_at = now()')
         sql = 'UPDATE ces.notes SET ' + ', '.join(set_parts) + ' WHERE note_id = :nid'

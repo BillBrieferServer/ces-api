@@ -20,7 +20,6 @@ class OfficialSummary(BaseModel):
     title: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
-    notes: Optional[str] = None
 class InteractionSummary(BaseModel):
     interaction_id: int
     interaction_date: Optional[datetime] = None
@@ -73,7 +72,6 @@ class OutreachDetail(BaseModel):
     next_action_type: Optional[Literal["visit", "call", "present", "follow_up", "send_info"]] = None
     board_approval_date: Optional[date] = None
     ces_member_since: Optional[date] = None
-    notes: Optional[str] = None
 class JurisdictionDetail(BaseModel):
     jurisdiction_id: int
     name: str
@@ -115,7 +113,6 @@ class OutreachUpdate(BaseModel):
     next_action_type: Optional[Literal["visit", "call", "present", "follow_up", "send_info"]] = None
     board_approval_date: Optional[date] = None
     ces_member_since: Optional[date] = None
-    notes: Optional[str] = None
 # ── Interactions ──
 
 class InteractionCreate(BaseModel):
@@ -154,7 +151,6 @@ class VendorCreate(BaseModel):
     source: Optional[str] = None
     pipeline_status: Optional[str] = None
     assigned_rm: Optional[str] = None
-    notes: Optional[str] = None
     next_action_date: Optional[date] = None
     next_action_type: Optional[str] = None
 class VendorListItem(BaseModel):
@@ -177,7 +173,6 @@ class VendorDetail(VendorListItem):
     address: Optional[str] = None
     ces_contract_category: Optional[str] = None
     source: Optional[str] = None
-    notes: Optional[str] = None
     created_date: Optional[datetime] = None
 class VendorJurisdictionCreate(BaseModel):
     jurisdiction_id: int
@@ -200,7 +195,6 @@ class VendorUpdate(BaseModel):
 class VendorPipelineUpdate(BaseModel):
     pipeline_status: Optional[str] = None
     assigned_rm: Optional[str] = None
-    notes: Optional[str] = None
     next_action_date: Optional[date] = None
     next_action_type: Optional[str] = None
 
@@ -216,7 +210,6 @@ class OfficialCreate(BaseModel):
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
     role_type: Optional[str] = "elected"
-    notes: Optional[str] = None
 class OfficialUpdateRequest(BaseModel):
     name: Optional[str] = None
     title: Optional[str] = None
@@ -224,7 +217,6 @@ class OfficialUpdateRequest(BaseModel):
     email: Optional[str] = None
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
-    notes: Optional[str] = None
 class OfficialResponse(BaseModel):
     official_id: int
     jurisdiction_id: Optional[int] = None
@@ -234,7 +226,6 @@ class OfficialResponse(BaseModel):
     email: Optional[str] = None
     mailing_address: Optional[str] = None
     physical_address: Optional[str] = None
-    notes: Optional[str] = None
     source: Optional[str] = None
     source_date: Optional[date] = None
 
@@ -252,6 +243,7 @@ class NoteCreate(BaseModel):
     body: str = ''
     follow_up_date: Optional[date] = None
     links: list[NoteLinkRef] = []
+    shared_with: list[str] = []
 
 class NoteUpdate(BaseModel):
     title: Optional[str] = None
@@ -259,11 +251,14 @@ class NoteUpdate(BaseModel):
     follow_up_date: Optional[date] = None
     follow_up_done: Optional[bool] = None
     links: Optional[list[NoteLinkRef]] = None
+    shared_with: Optional[list[str]] = None
 
 class NoteListItem(BaseModel):
     note_id: int
     title: Optional[str] = None
     snippet: str = ''
+    owner_email: str
+    shared_with: list[str] = []
     created_at: datetime
     updated_at: datetime
     follow_up_date: Optional[date] = None
@@ -274,6 +269,8 @@ class NoteDetail(BaseModel):
     note_id: int
     title: Optional[str] = None
     body: str
+    owner_email: str
+    shared_with: list[str] = []
     created_at: datetime
     updated_at: datetime
     follow_up_date: Optional[date] = None

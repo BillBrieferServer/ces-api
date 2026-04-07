@@ -40,7 +40,7 @@ async function doSearch(q, el) {
     const data = await api(`/search?q=${encodeURIComponent(q)}`);
     let html = "";
     const totalResults = data.jurisdictions.length + data.officials.length + data.vendors.length
-      + data.interactions.length + data.schedule.length + data.events.length + data.outreach_notes.length;
+      + data.interactions.length + data.schedule.length + data.events.length;
 
     if (totalResults === 0) {
       el.innerHTML = `<div class="empty">No results for "${q}"</div>`;
@@ -70,27 +70,10 @@ async function doSearch(q, el) {
         html += `<div class="list-item" data-action="jurisdiction" data-id="${o.jurisdiction_id}" data-name="${o.jurisdiction_name || ''}">
           <div class="list-item-title">${highlight(o.name, q)}</div>
           <div class="list-item-sub">${highlight(o.title || "", q)} &mdash; ${o.jurisdiction_name || ""}</div>
-          ${o.notes ? `<div style="font-size:0.8rem;color:var(--text-dim);font-style:italic;margin-top:2px">${highlight(o.notes, q)}</div>` : ""}
           <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
             ${o.phone ? phoneLink(o.phone) : ""}
             ${o.email ? emailLink(o.email) : ""}
           </div>
-        </div>`;
-      });
-    }
-
-    // Outreach Notes
-    if (data.outreach_notes.length > 0) {
-      html += `<div class="section-header" style="margin-top:16px">Outreach Notes (${data.outreach_notes.length})</div>`;
-      data.outreach_notes.forEach(n => {
-        html += `<div class="list-item" data-action="jurisdiction" data-id="${n.jurisdiction_id}" data-name="${n.jurisdiction_name}">
-          <div class="list-item-title">${highlight(n.jurisdiction_name, q)}</div>
-          <div class="list-item-meta">
-            ${badge(n.type)}
-            ${n.status ? badge(n.status) : ""}
-            ${n.priority ? badge(n.priority) : ""}
-          </div>
-          <div style="font-size:0.85rem;color:var(--text-dim);margin-top:4px;font-style:italic">${highlight(n.notes, q)}</div>
         </div>`;
       });
     }

@@ -30,9 +30,30 @@ function renderMd(text) {
 const TYPE_LABEL = { entity: "Entity", official: "Official", vendor: "Vendor", event: "Event" };
 const TYPE_COLOR = { entity: "#3b82f6", official: "#10b981", vendor: "#f59e0b", event: "#a855f7" };
 
+const RM_LIST = [
+  { email: "steve@quietimpact.ai", name: "Steve" },
+  { email: "sbrown@ces.org", name: "Drew" },
+];
+function rmName(email) {
+  const r = RM_LIST.find(x => x.email === email);
+  return r ? r.name : email;
+}
+
+let _currentUser = null;
+async function getCurrentUser() {
+  if (_currentUser) return _currentUser;
+  try {
+    _currentUser = await api("/me");
+  } catch (err) {
+    _currentUser = { email: "" };
+  }
+  return _currentUser;
+}
+
 
 export async function renderNotes(el, params = {}) {
   await getMarked();
+  const me = await getCurrentUser();
 
   let notes = [];
   let editing = null;
@@ -71,6 +92,8 @@ export async function renderNotes(el, params = {}) {
         follow_up_date: null,
         follow_up_done: false,
         links: prefillLink ? [prefillLink] : [],
+        owner_email: me.email,
+        shared_with: [],
       };
     }
     editing._preview = false;
@@ -82,11 +105,20 @@ export async function renderNotes(el, params = {}) {
     const titleEl = document.getElementById("note-title");
     const bodyEl = document.getElementById("note-body");
     const fudEl = document.getElementById("note-fud");
+    const shareEl = document.getElementById("note-share");
+    let shared_with = editing.shared_with || [];
+    if (shareEl) {
+      const v = shareEl.value;
+      if (v === "private") shared_with = [];
+      else if (v === "both") shared_with = RM_LIST.map(r => r.email);
+      else shared_with = [v];
+    }
     const payload = {
       title: titleEl.value.trim() || null,
       body: bodyEl ? bodyEl.value : editing.body,
       follow_up_date: fudEl.value || null,
       links: editing.links.map(l => ({ target_type: l.target_type, target_id: l.target_id })),
+      shared_with: shared_with,
     };
     try {
       if (editing.note_id) {
@@ -168,6 +200,12 @@ export async function renderNotes(el, params = {}) {
         html += '<div style="display:flex;justify-content:space-between;align-items:start;gap:8px">';
         html += '<div style="flex:1;min-width:0">';
         html += '<div style="font-weight:600;font-size:14px;margin-bottom:4px">' + escapeHtml(n.title || 'Untitled') + '</div>';
+        if (n.owner_email && n.owner_email !== me.email) {
+          html += '<div style="font-size:10px;color:var(--accent);margin-bottom:4px">Shared by ' + rmName(n.owner_email) + '</div>';
+        } else if (n.shared_with && n.shared_with.length > 0) {
+          const others = n.shared_with.filter(em => em !== me.email).map(rmName).join(', ');
+          if (others) html += '<div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">Shared with ' + others + '</div>';
+        }
         html += '<div style="font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(n.snippet) + '</div>';
         html += '<div style="margin-top:6px">' + (n.links || []).map(chipHtml).join('') + '</div>';
         html += fu;
@@ -213,23 +251,24 @@ export async function renderNotes(el, params = {}) {
   function renderEditorView() {
     const e = editing;
     const isNew = !e.note_id;
+    const canEdit = isNew || e.owner_email === me.email;
     let html = '';
 
     html += '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">';
     html += '<button class="btn" id="note-back">&larr; Back</button>';
     html += '<div style="flex:1"></div>';
     html += '<button class="btn" id="note-preview-toggle">' + (e._preview ? 'Edit' : 'Preview') + '</button>';
-    if (!isNew) html += '<button class="btn" id="note-delete" style="color:#dc2626">Delete</button>';
-    html += '<button class="btn btn-primary" id="note-save">Save</button>';
+    if (!isNew && canEdit) html += '<button class="btn" id="note-delete" style="color:#dc2626">Delete</button>';
+    if (canEdit) html += '<button class="btn btn-primary" id="note-save">Save</button>';
     html += '</div>';
 
-    html += '<input type="text" id="note-title" class="form-input" placeholder="Title (optional)" value="' + escapeHtml(e.title || '') + '" style="width:100%;padding:10px;font-size:16px;font-weight:600;margin-bottom:8px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px">';
+    html += '<input type="text" id="note-title" class="form-input" placeholder="Title (optional)" value="' + escapeHtml(e.title || '') + '"' + (canEdit ? '' : ' readonly') + ' style="width:100%;padding:10px;font-size:16px;font-weight:600;margin-bottom:8px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px">';
 
     html += '<div id="note-body-wrap" style="margin-bottom:12px">';
     if (e._preview) {
       html += '<div class="note-preview" style="min-height:240px;padding:12px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px">' + renderMd(e.body) + '</div>';
     } else {
-      html += '<textarea id="note-body" class="form-input" placeholder="Write your note in Markdown..." style="width:100%;min-height:240px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px">' + escapeHtml(e.body || '') + '</textarea>';
+      html += '<textarea id="note-body" class="form-input" placeholder="Write your note in Markdown..."' + (canEdit ? '' : ' readonly') + ' style="width:100%;min-height:240px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px">' + escapeHtml(e.body || '') + '</textarea>';
     }
     html += '</div>';
 
@@ -242,6 +281,25 @@ export async function renderNotes(el, params = {}) {
     }
     html += '<span style="font-size:11px;color:var(--text-dim)">Setting a date adds it to My Schedule.</span>';
     html += '</div></div>';
+
+    // Visibility dropdown
+    {
+      let curVal = 'private';
+      const sw = e.shared_with || [];
+      if (sw.length >= 2) curVal = 'both';
+      else if (sw.length === 1) curVal = sw[0];
+      html += '<div style="background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px;padding:12px;margin-bottom:12px">';
+      html += '<div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600">VISIBILITY</div>';
+      html += '<select id="note-share" class="form-select" style="padding:6px 8px"' + (canEdit ? '' : ' disabled') + '>';
+      html += '<option value="private"' + (curVal === 'private' ? ' selected' : '') + '>Just me</option>';
+      RM_LIST.forEach(r => {
+        html += '<option value="' + r.email + '"' + (curVal === r.email ? ' selected' : '') + '>' + r.name + '</option>';
+      });
+      html += '<option value="both"' + (curVal === 'both' ? ' selected' : '') + '>Both</option>';
+      html += '</select>';
+      if (!canEdit) html += '<span style="font-size:11px;color:var(--text-dim);margin-left:8px">Shared by ' + rmName(e.owner_email) + ' (read-only)</span>';
+      html += '</div>';
+    }
 
     html += '<div style="background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px;padding:12px">';
     html += '<div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600">LINKED TO</div>';
@@ -272,7 +330,8 @@ export async function renderNotes(el, params = {}) {
       e._preview = !e._preview;
       render();
     });
-    document.getElementById("note-save").addEventListener("click", saveNote);
+    const saveBtn = document.getElementById("note-save");
+    if (saveBtn) saveBtn.addEventListener("click", saveNote);
     const delBtn = document.getElementById("note-delete");
     if (delBtn) delBtn.addEventListener("click", deleteNote);
     const fudDone = document.getElementById("note-fud-done");

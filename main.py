@@ -245,6 +245,14 @@ def health_check():
 
 
 # --- CSRF Token for API ---
+@app.get("/api/me")
+def get_me(request: Request):
+    user = current_user(request)
+    if not user:
+        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+    return {"email": user.get("email", "").lower(), "name": user.get("name")}
+
+
 @app.get("/api/csrf-token")
 def get_csrf_token(request: Request):
     """Return CSRF token for SPA to include in mutation requests."""

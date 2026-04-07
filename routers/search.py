@@ -41,15 +41,14 @@ async def universal_search(
     """), params)
     jurisdictions = [dict(r) for r in result.mappings().all()]
 
-    # --- Officials: search name, title, email, notes, jurisdiction, county ---
+    # --- Officials: search name, title, email, jurisdiction, county ---
     o_conditions = " AND ".join(
         f"(o.name ILIKE :w{i} OR o.title ILIKE :w{i} OR o.email ILIKE :w{i} "
-        f"OR COALESCE(o.notes, '') ILIKE :w{i} "
         f"OR j.name ILIKE :w{i} OR c.county_name ILIKE :w{i})"
         for i in range(len(words))
     )
     result = await db.execute(text(f"""
-        SELECT o.official_id, o.name, o.title, o.phone, o.email, o.notes,
+        SELECT o.official_id, o.name, o.title, o.phone, o.email,
                j.jurisdiction_id, j.name as jurisdiction_name,
                j.type as jurisdiction_type, c.county_name
         FROM public.officials o
@@ -128,23 +127,6 @@ async def universal_search(
     """), params)
     events = [dict(r) for r in result.mappings().all()]
 
-    # --- Outreach notes: search notes field on outreach_status ---
-    on_conditions = " AND ".join(
-        f"(COALESCE(os.notes, '') ILIKE :w{i} OR j.name ILIKE :w{i})"
-        for i in range(len(words))
-    )
-    result = await db.execute(text(f"""
-        SELECT j.jurisdiction_id, j.name as jurisdiction_name, j.type,
-               os.status, os.notes, os.priority, os.next_action_date, os.next_action_type
-        FROM ces.outreach_status os
-        JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id
-        WHERE os.notes IS NOT NULL AND os.notes != ''
-        AND {on_conditions}
-        ORDER BY j.name
-        LIMIT 25
-    """), params)
-    outreach_notes = [dict(r) for r in result.mappings().all()]
-
     return {
         "query": q,
         "jurisdictions": jurisdictions,
@@ -153,5 +135,4 @@ async def universal_search(
         "interactions": interactions,
         "schedule": schedule,
         "events": events,
-        "outreach_notes": outreach_notes,
     }

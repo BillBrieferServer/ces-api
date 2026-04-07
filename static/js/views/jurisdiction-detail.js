@@ -72,10 +72,6 @@ export async function renderJurisdictionDetail(el, id) {
           Scheduled: ${ACTION_TYPES[o.next_action_type] || o.next_action_type || "Action"} ${formatDate(o.next_action_date)}
         </div>` : ""}
       </div>
-      <div class="form-group">
-        <label class="form-label">Notes</label>
-        <textarea class="form-textarea" id="o-notes" rows="3">${o.notes || ""}</textarea>
-      </div>
       <button class="btn btn-primary btn-block" id="save-outreach">Save Outreach</button>
     </div>`;
 
@@ -113,7 +109,7 @@ export async function renderJurisdictionDetail(el, id) {
           listHtml += `<div class="card" style="padding:12px 16px">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div style="font-weight:600;font-size:0.95rem">${lastFirst(off.name)}</div>
-              <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" data-off-notes="${(off.notes||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button>
+              <button class="btn btn-sm" data-edit-official="${off.official_id}" data-off-name="${(off.name||'').replace(/"/g,'&quot;')}" data-off-title="${(off.title||'').replace(/"/g,'&quot;')}" data-off-phone="${off.phone||''}" data-off-email="${off.email||''}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button>
               <button class="btn btn-sm" data-sched-official="${off.official_id}" data-sched-off-name="${(off.name||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(5,150,105,0.12);color:#059669;border:1px solid rgba(5,150,105,0.3);border-radius:6px">&#128197;</button>
             </div>
             <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${off.title || ""}</div>
@@ -121,7 +117,6 @@ export async function renderJurisdictionDetail(el, id) {
               ${off.phone ? phoneLink(off.phone) : ""}
               ${off.email ? emailLink(off.email) : ""}
             </div>
-            ${off.notes ? `<div style="font-size:0.8rem;color:var(--text-dim);margin-top:6px;font-style:italic">${off.notes}</div>` : ""}
           </div>`;
         });
       }
@@ -140,14 +135,13 @@ export async function renderJurisdictionDetail(el, id) {
         html += `<div class="card" style="padding:12px 16px">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div style="font-weight:600;font-size:0.95rem">${lastFirst(s.name)}</div>
-            <button class="btn btn-sm" data-edit-staff="${s.official_id}" data-staff-name="${(s.name||'').replace(/"/g,'&quot;')}" data-staff-title="${(s.title||'').replace(/"/g,'&quot;')}" data-staff-phone="${s.phone||''}" data-staff-email="${s.email||''}" data-staff-notes="${(s.notes||'').replace(/"/g,'&quot;')}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button>
+            <button class="btn btn-sm" data-edit-staff="${s.official_id}" data-staff-name="${(s.name||'').replace(/"/g,'&quot;')}" data-staff-title="${(s.title||'').replace(/"/g,'&quot;')}" data-staff-phone="${s.phone||''}" data-staff-email="${s.email||''}" style="padding:4px 10px;font-size:0.9rem;min-height:32px;background:rgba(255,255,255,0.08);color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);border-radius:6px">Edit</button>
           </div>
           <div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:6px">${s.title || ""}</div>
           <div style="display:flex;gap:16px;flex-wrap:wrap">
             ${s.phone ? phoneLink(s.phone) : ""}
             ${s.email ? emailLink(s.email) : ""}
           </div>
-          ${s.notes ? `<div style="font-size:0.8rem;color:var(--text-dim);margin-top:6px;font-style:italic">${s.notes}</div>` : ""}
         </div>`;
       });
     }
@@ -269,7 +263,6 @@ export async function renderJurisdictionDetail(el, id) {
             title: btn.dataset.offTitle,
             phone: btn.dataset.offPhone,
             email: btn.dataset.offEmail,
-            notes: btn.dataset.offNotes,
           });
         });
       });
@@ -283,14 +276,12 @@ export async function renderJurisdictionDetail(el, id) {
       const priority = el.querySelector("#o-priority").value;
       const actionDate = el.querySelector("#o-action-date").value;
       const actionType = el.querySelector("#o-action-type").value;
-      const notes = el.querySelector("#o-notes").value.trim();
 
       body.status = status;
       body.assigned_rm = rm || null;
       body.priority = priority || null;
       body.next_action_date = actionDate || null;
       body.next_action_type = actionType || null;
-      body.notes = notes || null;
 
       await api(`/outreach/${id}`, { method: "PUT", body });
       showToast("Outreach saved");
@@ -327,7 +318,6 @@ export async function renderJurisdictionDetail(el, id) {
           title: btn.dataset.staffTitle,
           phone: btn.dataset.staffPhone,
           email: btn.dataset.staffEmail,
-          notes: btn.dataset.staffNotes,
         }, "staff");
       });
     });
@@ -363,10 +353,6 @@ function showOfficialModal(parentEl, jurisdictionId, existing, roleType) {
         <label class="form-label">Email</label>
         <input class="form-input" id="off-email" type="email" value="${isEdit ? (existing.email || "") : ""}" placeholder="name@example.com">
       </div>
-      <div class="form-group">
-        <label class="form-label">Notes</label>
-        <textarea class="form-textarea" id="off-notes" rows="2" placeholder="Optional notes...">${isEdit ? (existing.notes || "") : ""}</textarea>
-      </div>
       <div style="display:flex;gap:8px">
       ${isEdit ? '<button class="btn btn-block" id="off-delete" style="background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid #DC2626;flex:1">Delete</button>' : ''}
       <button class="btn btn-primary btn-block" id="off-submit" style="flex:${isEdit ? 2 : 1}">${isEdit ? "Save Changes" : "Add Contact"}</button>
@@ -383,7 +369,6 @@ function showOfficialModal(parentEl, jurisdictionId, existing, roleType) {
     const title = overlay.querySelector("#off-title").value.trim();
     const phone = overlay.querySelector("#off-phone").value.trim();
     const email = overlay.querySelector("#off-email").value.trim();
-    const notes = overlay.querySelector("#off-notes").value.trim();
 
     if (!name) { showToast("Name is required"); return; }
     if (!isEdit && !title) { showToast("Title is required"); return; }
@@ -395,7 +380,6 @@ function showOfficialModal(parentEl, jurisdictionId, existing, roleType) {
         if (title !== existing.title) body.title = title;
         if (phone !== (existing.phone || "")) body.phone = phone || null;
         if (email !== (existing.email || "")) body.email = email || null;
-        if (notes !== (existing.notes || "")) body.notes = notes || null;
         if (Object.keys(body).length === 0) { overlay.remove(); return; }
         await api(`/officials/${existing.official_id}`, { method: "PUT", body });
         showToast("Contact updated");
@@ -403,7 +387,6 @@ function showOfficialModal(parentEl, jurisdictionId, existing, roleType) {
         const body = { jurisdiction_id: parseInt(jurisdictionId), name, title, role_type: roleType || "elected" };
         if (phone) body.phone = phone;
         if (email) body.email = email;
-        if (notes) body.notes = notes;
         await api("/officials", { method: "POST", body });
         showToast("Contact added");
       }

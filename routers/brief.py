@@ -112,7 +112,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     # Action Items: outreach next actions (30 days) + vendor next actions (30 days)
     result = await db.execute(text("""
         SELECT os.jurisdiction_id, j.name as entity_name,
-               os.next_action_date, os.next_action_type, os.status, os.assigned_rm, os.priority, os.notes,
+               os.next_action_date, os.next_action_type, os.status, os.assigned_rm, os.priority,
                'entity' as source
         FROM ces.outreach_status os
         JOIN common.jurisdictions j ON j.jurisdiction_id = os.jurisdiction_id
@@ -131,7 +131,7 @@ async def morning_brief(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(text("""
         SELECT v.vendor_id, v.vendor_name as entity_name,
                v.next_action_date, v.next_action_type, v.pipeline_status as status,
-               v.notes, v.contact_name,
+               v.contact_name,
                'vendor' as source
         FROM ces.vendors v
         WHERE v.next_action_date IS NOT NULL

@@ -104,9 +104,6 @@ async def update_outreach(
                 changes.append(f"Action type → {label}")
             elif key == "assigned_rm":
                 changes.append(f"Assigned to {new_val}" if new_val else "Unassigned")
-            elif key == "notes":
-                if new_val and new_val != old_val:
-                    changes.append(f"Notes updated")
 
     if changes:
         summary = "; ".join(changes)
@@ -123,7 +120,7 @@ async def update_outreach(
     result = await db.execute(text(
         "SELECT status, assigned_rm, priority, first_contact_date,"
         " next_action_date, next_action_type, board_approval_date,"
-        " ces_member_since, notes"
+        " ces_member_since"
         " FROM ces.outreach_status WHERE jurisdiction_id = :jid"
     ), {"jid": jurisdiction_id})
     row = result.mappings().first()

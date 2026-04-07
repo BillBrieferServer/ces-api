@@ -231,10 +231,6 @@ export async function renderVendors(el) {
               </select>
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Notes</label>
-            <textarea class="form-input" id="nav-notes" rows="2" placeholder="Notes..."></textarea>
-          </div>
         </div>
         <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
           <button class="btn btn-primary" id="nav-save">Save Vendor</button>
@@ -261,7 +257,6 @@ export async function renderVendors(el) {
         website: overlay.querySelector("#nav-website").value.trim() || null,
         pipeline_status: overlay.querySelector("#nav-pipeline").value || null,
         assigned_rm: overlay.querySelector("#nav-rm").value || null,
-        notes: overlay.querySelector("#nav-notes").value.trim() || null,
       };
 
       try {
@@ -374,10 +369,6 @@ export async function renderVendors(el) {
               </select>
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Notes</label>
-            <textarea class="form-textarea" id="vp-notes" rows="3">${v.notes || ''}</textarea>
-          </div>
           <div style="display:flex;gap:8px"><button class="btn btn-block" id="vp-delete" style="background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid #DC2626;flex:1">Delete</button><button class="btn btn-primary btn-block" id="vp-save" style="flex:2">Save</button></div>
         </div>
 
@@ -426,7 +417,6 @@ export async function renderVendors(el) {
         assigned_rm: overlay.querySelector("#vp-rm").value || null,
         next_action_date: overlay.querySelector("#vp-action-date").value || null,
         next_action_type: overlay.querySelector("#vp-action-type").value || null,
-        notes: overlay.querySelector("#vp-notes").value.trim() || null,
       };
       await api(`/vendors/${vendorId}/pipeline`, { method: "PATCH", body });
       overlay.remove();
