@@ -247,6 +247,7 @@ def health_check():
 # --- CSRF Token for API ---
 @app.get("/api/me")
 def get_me(request: Request):
+    """Return current authenticated user info for the SPA."""
     user = current_user(request)
     if not user:
         return JSONResponse({"detail": "Not authenticated"}, status_code=401)

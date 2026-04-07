@@ -12,12 +12,18 @@ Pocatello FY runs Oct 1 - Sep 30. We use the most recent complete FY.
 import re
 import sys
 from difflib import SequenceMatcher
+import os
 import psycopg2
 from psycopg2.extras import execute_values
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DB_PARAMS = dict(
-    dbname="qibrain", user="quietimpact_user",
-    host="localhost", password="ezj9QfukEXaShHcBpqN92WM4KREvvlWA"
+    dbname=os.getenv("DB_NAME", "qibrain"),
+    user=os.getenv("DB_USER", "quietimpact_user"),
+    host=os.getenv("DB_HOST", "localhost"),
+    password=os.getenv("DB_PASSWORD", ""),
 )
 
 # --- Name normalization (for matching, not display) ---
