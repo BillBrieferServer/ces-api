@@ -341,6 +341,7 @@ export async function renderNotes(el, params = {}) {
     html += '<input type="text" id="note-link-search" class="form-input" placeholder="Search to link an entity, official, or vendor..." style="width:100%;padding:6px 8px;font-size:13px">';
     html += '<div id="note-link-results" style="position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid rgba(255,255,255,0.28);border-radius:6px;max-height:240px;overflow-y:auto;z-index:10;display:none;margin-top:2px"></div>';
     html += '</div></div>';
+    html += '<div style="height:300px"></div>';
 
     el.innerHTML = html;
 
