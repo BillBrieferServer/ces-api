@@ -12,6 +12,16 @@ from models import (
 router = APIRouter(prefix='/notes', tags=['notes'])
 
 
+RM_FIRST_NAMES = {
+    'sbrown@ces.org': 'Steve',
+    'devans@ces.org': 'Drew',
+}
+
+
+def _first_name(email: str) -> str:
+    return RM_FIRST_NAMES.get(email, email.split("@")[0].capitalize())
+
+
 def _user_email(request: Request) -> str:
     from main import current_user
     user = current_user(request)
@@ -89,11 +99,11 @@ async def _upsert_followup_schedule(db: AsyncSession, note_id: int, user_email: 
     if existing:
         await db.execute(text('UPDATE public.schedule_items SET title = :title, item_date = :d, entity_id = :eid, official_id = :oid, vendor_id = :vid, assigned_to = :ae, updated_at = now() WHERE id = :sid'),
                          {'title': item_title, 'd': follow_up_date, 'eid': entity_id, 'oid': official_id,
-                          'vid': vendor_id, 'ae': user_email, 'sid': existing})
+                          'vid': vendor_id, 'ae': _first_name(user_email), 'sid': existing})
     else:
         await db.execute(text("INSERT INTO public.schedule_items (title, item_date, item_type, entity_id, official_id, vendor_id, assigned_to, note_id) VALUES (:title, :d, 'note_followup', :eid, :oid, :vid, :ae, :nid)"),
                          {'title': item_title, 'd': follow_up_date, 'eid': entity_id, 'oid': official_id,
-                          'vid': vendor_id, 'ae': user_email, 'nid': note_id})
+                          'vid': vendor_id, 'ae': _first_name(user_email), 'nid': note_id})
 
 
 @router.get('', response_model=list[NoteListItem])
