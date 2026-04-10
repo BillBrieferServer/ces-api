@@ -95,7 +95,7 @@ async def get_jurisdiction(jurisdiction_id: int, db: AsyncSession = Depends(get_
     # Outreach
     result = await db.execute(text("""
         SELECT status, assigned_rm, priority, first_contact_date,
-               next_action_date, next_action_type, board_approval_date, ces_member_since, notes
+               next_action_date, next_action_type, board_approval_date, ces_member_since
         FROM ces.outreach_status WHERE jurisdiction_id = :jid
     """), {"jid": jurisdiction_id})
     outreach_row = result.mappings().first()
