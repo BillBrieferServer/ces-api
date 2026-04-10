@@ -61,7 +61,7 @@ export async function renderMap(el) {
     geojsonLayer = L.geoJSON(data, {
       style: feature => {
         const p = feature.properties;
-        const ratio = p.entity_count > 0 ? p.active_count / p.entity_count : 0;
+        
         return {
           fillColor: ratio > 0 ? `hsl(${120 * ratio}, 70%, 35%)` : "#2a2a4a",
           fillOpacity: 0.6,
