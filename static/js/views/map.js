@@ -63,7 +63,7 @@ export async function renderMap(el) {
         const p = feature.properties;
         
         return {
-          fillColor: ratio > 0 ? `hsl(${120 * ratio}, 70%, 35%)` : "#2a2a4a",
+          fillColor: "#2a2a4a",
           fillOpacity: 0.6,
           weight: 1,
           color: "#4a5568",

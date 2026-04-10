@@ -8,7 +8,7 @@ import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=17755
 import { renderOfficials } from "./views/officials.js?v=1775583199";
 import { renderVendors } from "./views/vendors.js?v=1775583199";
 import { renderNotes } from "./views/notes.js?v=1775594869";
-import { renderMap } from "./views/map.js?v=1775583199";
+import { renderMap } from "./views/map.js?v=1776000001";
 
 const content = document.getElementById("content");
 const headerTitle = document.getElementById("header-title");
