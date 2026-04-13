@@ -303,11 +303,11 @@ export async function renderLinkedNotesSection(container, target_type, target_id
   let html = '';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px">';
   html += '<span class="section-header" style="margin:0">Notes (' + notes.length + ')</span>';
-  html += '<button class="btn btn-primary btn-sm" id="ln-add-btn">+ Note</button>';
+  
   html += '</div>';
 
   if (notes.length === 0) {
-    html += '<div style="padding:14px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:var(--text-dim);font-size:0.85rem">No notes yet. Click + Note to add one.</div>';
+    html += '<div style="padding:14px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:var(--text-dim);font-size:0.85rem">No linked notes.</div>';
   } else {
     const visible = notes.slice(0, 5);
     for (const n of visible) {
@@ -333,9 +333,6 @@ export async function renderLinkedNotesSection(container, target_type, target_id
   }
   container.innerHTML = html;
 
-  document.getElementById('ln-add-btn').addEventListener('click', () => {
-    _notes_nav('notes', { openNew: true, prefillLink: { target_type, target_id, target_name } });
-  });
   const va = document.getElementById('ln-viewall');
   if (va) va.addEventListener('click', (e) => {
     e.preventDefault();
