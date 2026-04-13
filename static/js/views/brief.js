@@ -94,7 +94,9 @@ export async function renderBrief(el) {
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-    let html = `<h2 style="font-size:1.3rem;margin-bottom:16px">${greeting}, Steve</h2>`;
+    let userName = "Steve";
+    try { const me = await fetch("/api/me").then(r => r.json()); if (me.name) userName = me.name.split(" ")[0]; } catch(e) {}
+    let html = `<h2 style="font-size:1.3rem;margin-bottom:16px">${greeting}, ${userName}</h2>`;
 
     // Schedule: Overdue
     if (data.schedule_overdue.length > 0) {
