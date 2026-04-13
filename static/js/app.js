@@ -176,6 +176,8 @@ export function badge(text) {
 
 export function formatDate(d) {
   if (!d) return "";
+  if (String(d).includes("T")) d = String(d).split("T")[0];
+
   const [y,m,dy] = d.split("-").map(Number); return new Date(y, m-1, dy).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
