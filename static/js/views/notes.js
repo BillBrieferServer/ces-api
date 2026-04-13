@@ -446,7 +446,9 @@ export async function renderNotes(el, params = {}) {
   }
 
   await loadList();
-  if (params.openNew) {
+  if (params.openNoteId) {
+    await openEditor(params.openNoteId);
+  } else if (params.openNew) {
     await openEditor(null);
   } else {
     render();

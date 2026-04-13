@@ -340,7 +340,7 @@ export async function renderLinkedNotesSection(container, target_type, target_id
   });
   container.querySelectorAll('.ln-card').forEach(card => {
     card.addEventListener('click', () => {
-      _notes_nav('notes', { target_type, target_id, target_name });
+      _notes_nav('notes', { openNoteId: parseInt(card.dataset.id) });
     });
   });
 }
