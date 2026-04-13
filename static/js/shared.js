@@ -340,6 +340,8 @@ export async function renderLinkedNotesSection(container, target_type, target_id
   });
   container.querySelectorAll('.ln-card').forEach(card => {
     card.addEventListener('click', () => {
+      const overlay = container.closest('.modal-overlay');
+      if (overlay) overlay.remove();
       _notes_nav('notes', { openNoteId: parseInt(card.dataset.id) });
     });
   });
