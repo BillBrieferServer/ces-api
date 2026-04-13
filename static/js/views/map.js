@@ -142,6 +142,9 @@ async function showCountyPanel(countyId, countyName) {
     html += `<div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px">${data.entities.length} entities</div>`;
 
     // Render known types first, then any remaining
+    // Sort entities alphabetically within each group
+    Object.values(grouped).forEach(arr => arr.sort((a, b) => a.name.localeCompare(b.name)));
+
     const allTypes = [...new Set([...ENTITY_TYPE_ORDER, ...Object.keys(grouped)])];
     allTypes.forEach(type => {
       const items = grouped[type];
