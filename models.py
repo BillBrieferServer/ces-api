@@ -276,3 +276,31 @@ class NoteDetail(BaseModel):
     follow_up_date: Optional[date] = None
     follow_up_done: bool = False
     links: list[NoteLinkOut] = []
+
+# ── Vendor Contacts ──
+
+class VendorContactCreate(BaseModel):
+    contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
+    phone: Optional[str] = None
+    cell_phone: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: bool = False
+
+class VendorContactUpdate(BaseModel):
+    contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
+    phone: Optional[str] = None
+    cell_phone: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: Optional[bool] = None
+
+class VendorContactOut(BaseModel):
+    contact_id: int
+    vendor_id: int
+    contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
+    phone: Optional[str] = None
+    cell_phone: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: bool = False

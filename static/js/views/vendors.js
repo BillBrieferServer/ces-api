@@ -162,7 +162,37 @@ export async function renderVendors(el) {
   }
 
 
+  function contactBlockHTML(idx) {
+    return `
+      <div class="nav-contact-block" data-idx="${idx}" style="padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;margin-bottom:8px;position:relative">
+        ${idx > 0 ? '<button class="nav-remove-contact" style="position:absolute;top:6px;right:8px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px">&times;</button>' : ''}
+        <div class="form-group">
+          <label class="form-label">Contact Name</label>
+          <input class="form-input nc-name" placeholder="Contact name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input class="form-input nc-title" placeholder="Title / Role">
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Work Phone</label>
+            <input class="form-input nc-phone" type="tel" placeholder="Work phone">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Cell Phone</label>
+            <input class="form-input nc-cell" type="tel" placeholder="Cell phone">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input nc-email" type="email" placeholder="Email">
+        </div>
+      </div>`;
+  }
+
   function showAddVendorModal(parentEl) {
+    let contactCount = 1;
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     overlay.innerHTML = `
@@ -175,37 +205,21 @@ export async function renderVendors(el) {
           <label class="form-label">Vendor Name *</label>
           <input class="form-input" id="nav-name" placeholder="Company name">
         </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <input class="form-input" id="nav-address" placeholder="Address">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Website</label>
+          <input class="form-input" id="nav-website" type="url" placeholder="https://...">
+        </div>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
-          <div style="font-weight:600;margin-bottom:8px">Contact Info</div>
-          <div class="form-group">
-            <label class="form-label">Contact Name</label>
-            <input class="form-input" id="nav-contact" placeholder="Contact name">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:600">Contacts</div>
+            <button class="btn btn-sm" id="nav-add-contact" style="padding:4px 10px;font-size:11px;background:rgba(37,99,235,0.15);color:#2563EB;border:1px solid #2563EB;border-radius:6px">+ Add Contact</button>
           </div>
-          <div class="form-group">
-            <label class="form-label">Title</label>
-            <input class="form-input" id="nav-title" placeholder="Title / Role">
-          </div>
-          <div style="display:flex;gap:8px">
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Work Phone</label>
-              <input class="form-input" id="nav-phone" type="tel" placeholder="Work phone">
-            </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Cell Phone</label>
-              <input class="form-input" id="nav-cell" type="tel" placeholder="Cell phone">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Email</label>
-            <input class="form-input" id="nav-email" type="email" placeholder="Email">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Address</label>
-            <input class="form-input" id="nav-address" placeholder="Address">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Website</label>
-            <input class="form-input" id="nav-website" type="url" placeholder="https://...">
+          <div id="nav-contacts-list">
+            ${contactBlockHTML(0)}
           </div>
         </div>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
@@ -242,17 +256,39 @@ export async function renderVendors(el) {
     overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
     overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
 
+    // Add contact block
+    overlay.querySelector("#nav-add-contact").addEventListener("click", () => {
+      const list = overlay.querySelector("#nav-contacts-list");
+      list.insertAdjacentHTML("beforeend", contactBlockHTML(contactCount++));
+      // Wire remove buttons
+      list.querySelectorAll(".nav-remove-contact").forEach(btn => {
+        btn.onclick = () => btn.closest(".nav-contact-block").remove();
+      });
+    });
+
     overlay.querySelector("#nav-save").addEventListener("click", async () => {
       const name = overlay.querySelector("#nav-name").value.trim();
       if (!name) { showToast("Vendor name is required"); return; }
 
+      // Gather contacts
+      const contactBlocks = overlay.querySelectorAll(".nav-contact-block");
+      const contacts = [];
+      contactBlocks.forEach((block, i) => {
+        const cn = block.querySelector(".nc-name").value.trim();
+        if (cn) {
+          contacts.push({
+            contact_name: cn,
+            contact_title: block.querySelector(".nc-title").value.trim() || null,
+            phone: block.querySelector(".nc-phone").value.trim() || null,
+            cell_phone: block.querySelector(".nc-cell").value.trim() || null,
+            email: block.querySelector(".nc-email").value.trim() || null,
+            is_primary: i === 0,
+          });
+        }
+      });
+
       const body = {
         vendor_name: name,
-        contact_name: overlay.querySelector("#nav-contact").value.trim() || null,
-        contact_title: overlay.querySelector("#nav-title").value.trim() || null,
-        phone: overlay.querySelector("#nav-phone").value.trim() || null,
-        cell_phone: overlay.querySelector("#nav-cell").value.trim() || null,
-        email: overlay.querySelector("#nav-email").value.trim() || null,
         address: overlay.querySelector("#nav-address").value.trim() || null,
         website: overlay.querySelector("#nav-website").value.trim() || null,
         pipeline_status: overlay.querySelector("#nav-pipeline").value || null,
@@ -260,7 +296,11 @@ export async function renderVendors(el) {
       };
 
       try {
-        await api("/vendors", { method: "POST", body });
+        const vendor = await api("/vendors", { method: "POST", body });
+        // Create contacts
+        for (const c of contacts) {
+          await api(`/vendors/${vendor.vendor_id}/contacts`, { method: "POST", body: c });
+        }
         overlay.remove();
         showToast("Vendor added");
         renderVendors(el);
@@ -284,29 +324,7 @@ export async function renderVendors(el) {
         ${v.jurisdictions ? `<div class="card-row"><label>Entities</label><span style="text-align:right;max-width:60%">${v.jurisdictions}</span></div>` : ''}
 
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
-          <div style="font-weight:600;margin-bottom:8px">Contact Info</div>
-          <div class="form-group">
-            <label class="form-label">Contact Name</label>
-            <input class="form-input" id="vc-name" value="${v.contact_name || ''}" placeholder="Contact name">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Title</label>
-            <input class="form-input" id="vc-title" value="${v.contact_title || ''}" placeholder="Title / Role">
-          </div>
-          <div style="display:flex;gap:8px">
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Work Phone</label>
-              <input class="form-input" id="vc-phone" type="tel" value="${v.phone || ''}" placeholder="Work phone">
-            </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Cell Phone</label>
-              <input class="form-input" id="vc-cell" type="tel" value="${v.cell_phone || ''}" placeholder="Cell phone">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Email</label>
-            <input class="form-input" id="vc-email" type="email" value="${v.email || ''}" placeholder="Email">
-          </div>
+          <div style="font-weight:600;margin-bottom:8px">Vendor Details</div>
           <div class="form-group">
             <label class="form-label">Address</label>
             <input class="form-input" id="vc-address" value="${(v.address || '').replace(/"/g, '&quot;')}" placeholder="Address">
@@ -315,6 +333,14 @@ export async function renderVendors(el) {
             <label class="form-label">Website</label>
             <input class="form-input" id="vc-website" type="url" value="${v.website || ''}" placeholder="https://...">
           </div>
+        </div>
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:600">Contacts</div>
+            <button class="btn btn-sm" id="vc-add-contact" style="padding:4px 10px;font-size:11px;background:rgba(37,99,235,0.15);color:#2563EB;border:1px solid #2563EB;border-radius:6px">+ Add Contact</button>
+          </div>
+          <div id="vc-contacts-list"><div class="empty" style="font-size:12px;color:var(--text-dim)">Loading contacts...</div></div>
         </div>
 
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
@@ -379,6 +405,133 @@ export async function renderVendors(el) {
     `;
     document.body.appendChild(overlay);
 
+    // ── Load & render contacts ──
+    async function loadContacts() {
+      const contacts = await api(`/vendors/${vendorId}/contacts`);
+      const listEl = overlay.querySelector("#vc-contacts-list");
+      if (!contacts.length) {
+        listEl.innerHTML = '<div class="empty" style="font-size:12px;color:var(--text-dim)">No contacts yet</div>';
+      } else {
+        listEl.innerHTML = contacts.map(c => `
+          <div class="vc-contact-card" data-cid="${c.contact_id}" style="padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;margin-bottom:8px;position:relative">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:13px">
+                  ${c.is_primary ? '<span style="color:#EAB308;margin-right:4px" title="Primary contact">&#9733;</span>' : ''}
+                  ${c.contact_name || '(unnamed)'}
+                  ${c.contact_title ? '<span style="font-weight:400;color:var(--text-dim);font-size:12px"> — ' + c.contact_title + '</span>' : ''}
+                </div>
+                <div style="font-size:12px;color:var(--text-dim);margin-top:4px">
+                  ${c.phone ? '<span style="margin-right:12px">&#128222; ' + c.phone + '</span>' : ''}
+                  ${c.cell_phone ? '<span style="margin-right:12px">&#128241; ' + c.cell_phone + '</span>' : ''}
+                  ${c.email ? '<span>&#9993; ' + c.email + '</span>' : ''}
+                </div>
+              </div>
+              <div style="display:flex;gap:4px;flex-shrink:0">
+                ${!c.is_primary ? '<button class="vc-set-primary btn btn-sm" data-cid="' + c.contact_id + '" style="padding:2px 8px;font-size:10px;background:rgba(234,179,8,0.15);color:#EAB308;border:1px solid #EAB308;border-radius:4px" title="Set as primary">&#9733;</button>' : ''}
+                <button class="vc-edit-contact btn btn-sm" data-cid="${c.contact_id}" style="padding:2px 8px;font-size:10px;border-radius:4px">Edit</button>
+                <button class="vc-del-contact btn btn-sm" data-cid="${c.contact_id}" style="padding:2px 8px;font-size:10px;background:rgba(220,38,38,0.15);color:#DC2626;border:1px solid #DC2626;border-radius:4px">&times;</button>
+              </div>
+            </div>
+          </div>
+        `).join("");
+
+        // Set primary
+        listEl.querySelectorAll(".vc-set-primary").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            await api(`/vendors/${vendorId}/contacts/${btn.dataset.cid}`, { method: "PUT", body: { is_primary: true } });
+            showToast("Primary contact updated");
+            loadContacts();
+          });
+        });
+
+        // Delete
+        listEl.querySelectorAll(".vc-del-contact").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Remove this contact?")) return;
+            await api(`/vendors/${vendorId}/contacts/${btn.dataset.cid}`, { method: "DELETE" });
+            showToast("Contact removed");
+            loadContacts();
+          });
+        });
+
+        // Edit — show inline form
+        listEl.querySelectorAll(".vc-edit-contact").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const cid = btn.dataset.cid;
+            const c = contacts.find(x => x.contact_id == cid);
+            const card = btn.closest(".vc-contact-card");
+            card.innerHTML = `
+              <div class="form-group"><label class="form-label">Name</label><input class="form-input ce-name" value="${c.contact_name || ''}"></div>
+              <div class="form-group"><label class="form-label">Title</label><input class="form-input ce-title" value="${c.contact_title || ''}"></div>
+              <div style="display:flex;gap:8px">
+                <div class="form-group" style="flex:1"><label class="form-label">Work Phone</label><input class="form-input ce-phone" type="tel" value="${c.phone || ''}"></div>
+                <div class="form-group" style="flex:1"><label class="form-label">Cell Phone</label><input class="form-input ce-cell" type="tel" value="${c.cell_phone || ''}"></div>
+              </div>
+              <div class="form-group"><label class="form-label">Email</label><input class="form-input ce-email" type="email" value="${c.email || ''}"></div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-primary btn-sm ce-save" style="flex:1">Save</button>
+                <button class="btn btn-sm ce-cancel" style="flex:1">Cancel</button>
+              </div>
+            `;
+            card.querySelector(".ce-save").addEventListener("click", async () => {
+              await api(`/vendors/${vendorId}/contacts/${cid}`, { method: "PUT", body: {
+                contact_name: card.querySelector(".ce-name").value.trim() || null,
+                contact_title: card.querySelector(".ce-title").value.trim() || null,
+                phone: card.querySelector(".ce-phone").value.trim() || null,
+                cell_phone: card.querySelector(".ce-cell").value.trim() || null,
+                email: card.querySelector(".ce-email").value.trim() || null,
+              }});
+              showToast("Contact updated");
+              loadContacts();
+            });
+            card.querySelector(".ce-cancel").addEventListener("click", () => loadContacts());
+          });
+        });
+      }
+    }
+    loadContacts();
+
+    // Add new contact
+    overlay.querySelector("#vc-add-contact").addEventListener("click", () => {
+      const listEl = overlay.querySelector("#vc-contacts-list");
+      // Check if add form already open
+      if (listEl.querySelector(".vc-new-form")) return;
+      const formDiv = document.createElement("div");
+      formDiv.className = "vc-new-form";
+      formDiv.style.cssText = "padding:10px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.3);border-radius:8px;margin-bottom:8px";
+      formDiv.innerHTML = `
+        <div class="form-group"><label class="form-label">Name *</label><input class="form-input cn-name" placeholder="Contact name"></div>
+        <div class="form-group"><label class="form-label">Title</label><input class="form-input cn-title" placeholder="Title / Role"></div>
+        <div style="display:flex;gap:8px">
+          <div class="form-group" style="flex:1"><label class="form-label">Work Phone</label><input class="form-input cn-phone" type="tel" placeholder="Work phone"></div>
+          <div class="form-group" style="flex:1"><label class="form-label">Cell Phone</label><input class="form-input cn-cell" type="tel" placeholder="Cell phone"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input cn-email" type="email" placeholder="Email"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-primary btn-sm cn-save" style="flex:1">Add Contact</button>
+          <button class="btn btn-sm cn-cancel" style="flex:1">Cancel</button>
+        </div>
+      `;
+      listEl.prepend(formDiv);
+      formDiv.querySelector(".cn-name").focus();
+      formDiv.querySelector(".cn-save").addEventListener("click", async () => {
+        const nm = formDiv.querySelector(".cn-name").value.trim();
+        if (!nm) { showToast("Contact name required"); return; }
+        await api(`/vendors/${vendorId}/contacts`, { method: "POST", body: {
+          contact_name: nm,
+          contact_title: formDiv.querySelector(".cn-title").value.trim() || null,
+          phone: formDiv.querySelector(".cn-phone").value.trim() || null,
+          cell_phone: formDiv.querySelector(".cn-cell").value.trim() || null,
+          email: formDiv.querySelector(".cn-email").value.trim() || null,
+          is_primary: false,
+        }});
+        showToast("Contact added");
+        loadContacts();
+      });
+      formDiv.querySelector(".cn-cancel").addEventListener("click", () => formDiv.remove());
+    });
+
     renderLinkedNotesSection(overlay.querySelector("#vendor-linked-notes"), "vendor", vendorId, v.vendor_name);
 
     overlay.querySelector(".modal-close").addEventListener("click", () => overlay.remove());
@@ -399,17 +552,12 @@ export async function renderVendors(el) {
     });
 
     overlay.querySelector("#vp-save").addEventListener("click", async () => {
-      // Save contact info via PUT
-      const contactBody = {
-        contact_name: overlay.querySelector("#vc-name").value.trim() || null,
-        contact_title: overlay.querySelector("#vc-title").value.trim() || null,
-        phone: overlay.querySelector("#vc-phone").value.trim() || null,
-        cell_phone: overlay.querySelector("#vc-cell").value.trim() || null,
-        email: overlay.querySelector("#vc-email").value.trim() || null,
+      // Save vendor details (address, website) via PUT
+      const detailBody = {
         address: overlay.querySelector("#vc-address").value.trim() || null,
         website: overlay.querySelector("#vc-website").value.trim() || null,
       };
-      await api(`/vendors/${vendorId}`, { method: "PUT", body: contactBody });
+      await api(`/vendors/${vendorId}`, { method: "PUT", body: detailBody });
 
       // Save pipeline info
       const body = {

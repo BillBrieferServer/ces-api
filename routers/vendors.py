@@ -187,3 +187,90 @@ async def link_vendor_jurisdiction(
 
     return {"status": "linked", "vendor_id": vendor_id,
             "jurisdiction_id": link.jurisdiction_id}
+
+
+from models import VendorContactCreate, VendorContactUpdate, VendorContactOut
+
+
+@router.get("/{vendor_id}/contacts", response_model=list[VendorContactOut])
+async def list_vendor_contacts(vendor_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(text("""
+        SELECT contact_id, vendor_id, contact_name, contact_title,
+               phone, cell_phone, email, is_primary
+        FROM ces.vendor_contacts
+        WHERE vendor_id = :vendor_id
+        ORDER BY is_primary DESC, contact_id
+    """), {"vendor_id": vendor_id})
+    rows = result.mappings().all()
+    if not rows:
+        # Auto-migrate from legacy single-contact fields
+        v = await db.execute(text("""
+            SELECT contact_name, contact_title, phone, cell_phone, email
+            FROM ces.vendors WHERE vendor_id = :vendor_id
+              AND contact_name IS NOT NULL AND contact_name != ''
+        """), {"vendor_id": vendor_id})
+        legacy = v.mappings().first()
+        if legacy:
+            ins = await db.execute(text("""
+                INSERT INTO ces.vendor_contacts
+                    (vendor_id, contact_name, contact_title, phone, cell_phone, email, is_primary)
+                VALUES (:vendor_id, :contact_name, :contact_title, :phone, :cell_phone, :email, true)
+                RETURNING contact_id, vendor_id, contact_name, contact_title, phone, cell_phone, email, is_primary
+            """), {"vendor_id": vendor_id, **dict(legacy)})
+            await db.commit()
+            rows = ins.mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.post("/{vendor_id}/contacts", response_model=VendorContactOut, status_code=201)
+async def create_vendor_contact(vendor_id: int, contact: VendorContactCreate, db: AsyncSession = Depends(get_db)):
+    # If marked primary, clear other primaries first
+    if contact.is_primary:
+        await db.execute(text("""
+            UPDATE ces.vendor_contacts SET is_primary = false WHERE vendor_id = :vendor_id
+        """), {"vendor_id": vendor_id})
+    result = await db.execute(text("""
+        INSERT INTO ces.vendor_contacts
+            (vendor_id, contact_name, contact_title, phone, cell_phone, email, is_primary)
+        VALUES (:vendor_id, :contact_name, :contact_title, :phone, :cell_phone, :email, :is_primary)
+        RETURNING contact_id, vendor_id, contact_name, contact_title, phone, cell_phone, email, is_primary
+    """), {"vendor_id": vendor_id, **contact.model_dump()})
+    await db.commit()
+    return dict(result.mappings().first())
+
+
+@router.put("/{vendor_id}/contacts/{contact_id}", response_model=VendorContactOut)
+async def update_vendor_contact(vendor_id: int, contact_id: int, update: VendorContactUpdate, db: AsyncSession = Depends(get_db)):
+    fields = update.model_dump(exclude_unset=True)
+    if not fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    # If setting primary, clear others first
+    if fields.get("is_primary"):
+        await db.execute(text("""
+            UPDATE ces.vendor_contacts SET is_primary = false WHERE vendor_id = :vendor_id
+        """), {"vendor_id": vendor_id})
+    set_parts = [f"{k} = :{k}" for k in fields]
+    params = {"contact_id": contact_id, "vendor_id": vendor_id, **fields}
+    result = await db.execute(text(f"""
+        UPDATE ces.vendor_contacts SET {', '.join(set_parts)}
+        WHERE contact_id = :contact_id AND vendor_id = :vendor_id
+        RETURNING contact_id, vendor_id, contact_name, contact_title, phone, cell_phone, email, is_primary
+    """), params)
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    await db.commit()
+    return dict(row)
+
+
+@router.delete("/{vendor_id}/contacts/{contact_id}")
+async def delete_vendor_contact(vendor_id: int, contact_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(text("""
+        DELETE FROM ces.vendor_contacts
+        WHERE contact_id = :contact_id AND vendor_id = :vendor_id
+        RETURNING contact_id
+    """), {"contact_id": contact_id, "vendor_id": vendor_id})
+    if not result.first():
+        raise HTTPException(status_code=404, detail="Contact not found")
+    await db.commit()
+    return {"ok": True}

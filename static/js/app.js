@@ -6,7 +6,7 @@ import { renderBrief } from "./views/brief.js?v=1781500000";
 import { renderJurisdictions } from "./views/jurisdictions.js?v=1775583199";
 import { renderJurisdictionDetail } from "./views/jurisdiction-detail.js?v=1775583199";
 import { renderOfficials } from "./views/officials.js?v=1775583199";
-import { renderVendors } from "./views/vendors.js?v=1775583199";
+import { renderVendors } from "./views/vendors.js?v=1781500000";
 import { renderNotes } from "./views/notes.js?v=1775594869";
 import { renderMap } from "./views/map.js?v=1776000002";
 
