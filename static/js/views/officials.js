@@ -67,6 +67,12 @@ export async function renderOfficials(el) {
           ${o.phone ? phoneLink(o.phone) : ""}
           ${o.email ? emailLink(o.email) : ""}
         </div>
+        ${(o.physical_address || o.mailing_address) ? `
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.4">
+            ${o.physical_address ? `<div>${o.physical_address}</div>` : ""}
+            ${o.mailing_address && o.mailing_address !== o.physical_address ? `<div>Mail: ${o.mailing_address}</div>` : ""}
+          </div>
+        ` : ""}
       </div>
     `).join("");
 
@@ -301,10 +307,15 @@ function statusBadge(status) {
     NEW: "background:rgba(34,197,94,0.2);color:#22C55E",
     SAME: "background:rgba(255,255,255,0.12);color:var(--text-dim)",
     CHANGED: "background:rgba(234,179,8,0.2);color:#EAB308",
+    POSSIBLE: "background:rgba(59,130,246,0.2);color:#60A5FA",
     UNMATCHED: "background:rgba(239,68,68,0.2);color:#EF4444",
     ERROR: "background:rgba(239,68,68,0.35);color:#fca5a5",
   };
   return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;' + (styles[status] || "") + '">' + status + '</span>';
+}
+
+function escHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
 }
 
 function renderDiff(overlay, ctx, result) {
@@ -313,22 +324,44 @@ function renderDiff(overlay, ctx, result) {
   const diffRows = result.rows;
   const summary = result.summary || {};
 
+  // Default decisions per row
   const decisions = new Map();
+  const approvedFields = new Map(); // row_index -> Set<field>
+  const chosenMatchId = new Map();  // row_index -> existing_official_id for CHANGED/POSSIBLE (null = create new)
+
   for (const r of diffRows) {
-    if (r.status === "NEW") decisions.set(r.row_index, { action: "insert", jurisdiction_id: r.jurisdiction_id });
-    else if (r.status === "CHANGED") decisions.set(r.row_index, { action: "replace", jurisdiction_id: r.jurisdiction_id, existing_official_id: r.existing.official_id });
-    else if (r.status === "UNMATCHED") decisions.set(r.row_index, { action: "skip" });
-    else decisions.set(r.row_index, { action: "skip" });
+    if (r.status === "CHANGED") {
+      // default: merge with best_match, accept fill_fields only (empty→new)
+      const approved = new Set((r.fill_fields || []).map(f => f.field));
+      approvedFields.set(r.row_index, approved);
+      chosenMatchId.set(r.row_index, r.best_match.official_id);
+      decisions.set(r.row_index, {
+        action: "merge",
+        existing_official_id: r.best_match.official_id,
+        approved_fields: Array.from(approved),
+      });
+    } else if (r.status === "POSSIBLE") {
+      // default: skip — user decides
+      decisions.set(r.row_index, { action: "skip" });
+      approvedFields.set(r.row_index, new Set());
+      chosenMatchId.set(r.row_index, null);
+    } else if (r.status === "NEW") {
+      decisions.set(r.row_index, { action: "insert", jurisdiction_id: r.jurisdiction_id });
+    } else if (r.status === "UNMATCHED") {
+      decisions.set(r.row_index, { action: "skip" });
+    } else {
+      decisions.set(r.row_index, { action: "skip" });
+    }
   }
 
-  const summaryText = ["NEW", "CHANGED", "SAME", "UNMATCHED", "ERROR"]
+  const summaryText = ["NEW", "CHANGED", "POSSIBLE", "SAME", "UNMATCHED", "ERROR"]
     .filter(s => summary[s])
     .map(s => summary[s] + " " + s.toLowerCase())
     .join(" · ");
 
   let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
     '<div style="font-size:13px">' + summaryText + '</div>' +
-    '<div style="font-size:11px;color:var(--text-dim)">Uncheck rows to skip them</div>' +
+    '<div style="font-size:11px;color:var(--text-dim)">Review each match, check fields to apply</div>' +
     '</div>';
   html += '<div style="margin-bottom:12px"><label class="form-label" style="font-size:12px">Source tag (optional)</label><input class="form-input" id="oimp-source" placeholder="e.g. Idaho 2026 elected officials roster"></div>';
   html += '<div id="oimp-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>';
@@ -342,12 +375,54 @@ function renderDiff(overlay, ctx, result) {
   const countEl = body.querySelector("#oimp-count");
 
   const refreshCount = () => {
-    let ins = 0, rep = 0;
+    let ins = 0, mg = 0;
     for (const d of decisions.values()) {
       if (d.action === "insert") ins++;
-      else if (d.action === "replace") rep++;
+      else if (d.action === "merge") mg++;
     }
-    countEl.textContent = "(" + (ins + rep) + ": " + ins + " new, " + rep + " replacements)";
+    countEl.textContent = "(" + (ins + mg) + ": " + ins + " new, " + mg + " merges)";
+  };
+
+  const fieldRow = (ri, ch, defaultChecked) => {
+    const id = "chk-" + ri + "-" + ch.field;
+    return '<label style="display:contents">' +
+      '<input type="checkbox" class="oimp-field" data-ri="' + ri + '" data-field="' + ch.field + '" ' + (defaultChecked ? "checked" : "") + ' style="margin:2px 0 0 0">' +
+      '<span style="color:var(--text-dim);font-size:11px">' + escHtml(ch.field) + '</span>' +
+      '<span style="color:var(--text-dim);font-size:11px;text-decoration:' + (ch.old ? 'line-through' : 'none') + '">' + escHtml(ch.old || "—") + '</span>' +
+      '<span style="color:#EAB308;font-size:11px">' + escHtml(ch.new || "—") + '</span>' +
+      '</label>';
+  };
+
+  const mergeBlock = (r) => {
+    const ri = r.row_index;
+    const fills = r.fill_fields || [];
+    const overs = r.overwrite_fields || [];
+    const ex = r.existing || (r.best_match && r.best_match.existing) || {};
+    let h = '<div style="display:grid;grid-template-columns:20px max-content 1fr 1fr;gap:4px 10px;align-items:start;margin-top:6px;padding:6px 8px;background:rgba(234,179,8,0.06);border-radius:4px">';
+    h += '<div></div><div style="font-size:10px;color:var(--text-dim)">field</div><div style="font-size:10px;color:var(--text-dim)">existing</div><div style="font-size:10px;color:#EAB308">from card</div>';
+    if (fills.length) {
+      for (const ch of fills) h += fieldRow(ri, ch, true);
+    }
+    if (overs.length) {
+      h += '<div style="grid-column:1/-1;font-size:10px;color:var(--text-dim);margin-top:4px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08)">Overwrites (unchecked by default)</div>';
+      for (const ch of overs) h += fieldRow(ri, ch, false);
+    }
+    h += '</div>';
+    if (!fills.length && !overs.length) {
+      h = '<div style="font-size:11px;color:var(--text-dim);margin-top:4px">No new data — already on file.</div>';
+    }
+    return h;
+  };
+
+  const candSelect = (r) => {
+    const ri = r.row_index;
+    const cands = r.candidates || [];
+    let opts = '<option value="">— create new —</option>';
+    for (const c of cands) {
+      const sel = (chosenMatchId.get(ri) === c.official_id) ? " selected" : "";
+      opts += '<option value="' + c.official_id + '"' + sel + '>merge with: ' + escHtml(c.name) + ' — ' + escHtml(c.title) + ' (score ' + c.score + ')</option>';
+    }
+    return '<select class="form-select oimp-match" data-ri="' + ri + '" style="font-size:12px;padding:4px 6px;margin-top:4px;max-width:100%">' + opts + '</select>';
   };
 
   const renderRow = (r) => {
@@ -358,33 +433,32 @@ function renderDiff(overlay, ctx, result) {
 
     let body_html = "";
     if (r.status === "NEW") {
-      body_html = '<div style="font-size:13px"><strong>' + (inc.name || "") + '</strong> — ' + (inc.title || "") + '</div>' +
-        '<div style="font-size:11px;color:var(--text-dim)">New record. ' + [inc.email, inc.phone].filter(Boolean).join(" · ") + '</div>';
+      body_html = '<div style="font-size:13px"><strong>' + escHtml(inc.name) + '</strong> — ' + escHtml(inc.title) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-dim)">New record. ' + [inc.email, inc.phone].filter(Boolean).map(escHtml).join(" · ") + '</div>';
     } else if (r.status === "SAME") {
-      body_html = '<div style="font-size:13px">' + (inc.name || "") + ' — ' + (inc.title || "") + '</div>' +
+      body_html = '<div style="font-size:13px">' + escHtml(inc.name) + ' — ' + escHtml(inc.title) + '</div>' +
         '<div style="font-size:11px;color:var(--text-dim)">Already on file, no changes</div>';
-    } else if (r.status === "CHANGED") {
-      const ex = r.existing || {};
-      let diffs = '<div style="display:grid;grid-template-columns:max-content 1fr 1fr;gap:4px 12px;font-size:11px;margin-top:4px;padding:6px 8px;background:rgba(234,179,8,0.08);border-radius:4px">';
-      diffs += '<div></div><div style="color:var(--text-dim)">was</div><div style="color:#EAB308">→ new</div>';
-      for (const ch of (r.changed_fields || [])) {
-        diffs += '<div style="color:var(--text-dim)">' + ch.field + '</div>';
-        diffs += '<div style="color:var(--text-dim);text-decoration:line-through">' + (ch.old || "—") + '</div>';
-        diffs += '<div style="color:#EAB308">' + (ch.new || "—") + '</div>';
-      }
-      diffs += '</div>';
-      body_html = '<div style="font-size:13px"><strong>' + (inc.title || "") + '</strong>: ' + (ex.name || "?") + ' → ' + (inc.name || "?") + '</div>' + diffs;
+    } else if (r.status === "CHANGED" || r.status === "POSSIBLE") {
+      const bm = r.best_match || {};
+      const ex = r.existing || (bm.existing || {});
+      const scoreNote = r.status === "CHANGED"
+        ? 'Auto-matched (score ' + bm.score + ')'
+        : 'Possible match (score ' + bm.score + ') — review';
+      body_html = '<div style="font-size:13px"><strong>' + escHtml(inc.name) + '</strong> — ' + escHtml(inc.title) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-dim)">' + scoreNote + '</div>' +
+        candSelect(r) +
+        '<div class="oimp-merge" data-ri="' + i + '">' + mergeBlock(r) + '</div>';
     } else if (r.status === "UNMATCHED") {
       const cands = r.jurisdiction_candidates || [];
       let optsJ = '<option value="">-- pick jurisdiction or skip --</option>';
       for (const c of cands) {
-        optsJ += '<option value="' + c.jurisdiction_id + '">' + c.name + (c.type ? " (" + c.type + ")" : "") + '</option>';
+        optsJ += '<option value="' + c.jurisdiction_id + '">' + escHtml(c.name) + (c.type ? " (" + escHtml(c.type) + ")" : "") + '</option>';
       }
-      body_html = '<div style="font-size:13px"><strong>' + (inc.name || "") + '</strong> — ' + (inc.title || "") + '</div>' +
-        '<div style="font-size:11px;color:#EF4444;margin:2px 0">No match for jurisdiction: "' + (inc.jurisdiction_name || "") + '"</div>' +
+      body_html = '<div style="font-size:13px"><strong>' + escHtml(inc.name) + '</strong> — ' + escHtml(inc.title) + '</div>' +
+        '<div style="font-size:11px;color:#EF4444;margin:2px 0">No match for jurisdiction: "' + escHtml(inc.jurisdiction_name) + '"</div>' +
         '<select class="form-select oimp-jpick" data-ri="' + i + '" style="font-size:12px;padding:4px 6px">' + optsJ + '</select>';
     } else if (r.status === "ERROR") {
-      body_html = '<div style="font-size:12px;color:#EF4444">Row ' + (i + 1) + ': ' + (r.error || "error") + '</div>';
+      body_html = '<div style="font-size:12px;color:#EF4444">Row ' + (i + 1) + ': ' + escHtml(r.error || "error") + '</div>';
     }
 
     const checked = active ? "checked" : "";
@@ -392,7 +466,7 @@ function renderDiff(overlay, ctx, result) {
     return '<div class="oimp-row" data-ri="' + i + '" style="border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:8px 10px;display:flex;gap:10px;align-items:flex-start">' +
       '<input type="checkbox" class="oimp-cb" data-ri="' + i + '" ' + checked + ' ' + disabled + ' style="margin-top:4px">' +
       '<div style="flex:1;min-width:0">' +
-        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">' + statusBadge(r.status) + '<span style="font-size:11px;color:var(--text-dim)">' + (inc.jurisdiction_name || "") + '</span></div>' +
+        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">' + statusBadge(r.status) + '<span style="font-size:11px;color:var(--text-dim)">' + escHtml(inc.jurisdiction_name) + '</span></div>' +
         body_html +
       '</div>' +
     '</div>';
@@ -401,22 +475,54 @@ function renderDiff(overlay, ctx, result) {
   rowsContainer.innerHTML = diffRows.map(renderRow).join("");
   refreshCount();
 
+  const recomputeDecision = (ri) => {
+    const r = diffRows.find(x => x.row_index === ri);
+    const cb = rowsContainer.querySelector('.oimp-cb[data-ri="' + ri + '"]');
+    if (!cb.checked) { decisions.set(ri, { action: "skip" }); return; }
+    if (r.status === "NEW") {
+      decisions.set(ri, { action: "insert", jurisdiction_id: r.jurisdiction_id });
+    } else if (r.status === "CHANGED" || r.status === "POSSIBLE") {
+      const matchId = chosenMatchId.get(ri);
+      if (matchId) {
+        const approved = Array.from(approvedFields.get(ri) || []);
+        decisions.set(ri, { action: "merge", existing_official_id: matchId, approved_fields: approved });
+      } else {
+        decisions.set(ri, { action: "insert", jurisdiction_id: r.jurisdiction_id });
+      }
+    } else if (r.status === "UNMATCHED") {
+      const sel = rowsContainer.querySelector('.oimp-jpick[data-ri="' + ri + '"]');
+      const jid = sel && sel.value ? parseInt(sel.value, 10) : null;
+      if (jid) decisions.set(ri, { action: "insert", jurisdiction_id: jid });
+      else { cb.checked = false; decisions.set(ri, { action: "skip" }); showToast("Pick a jurisdiction first"); }
+    }
+  };
+
   rowsContainer.querySelectorAll(".oimp-cb").forEach(cb => {
     cb.addEventListener("change", () => {
       const ri = parseInt(cb.dataset.ri, 10);
-      const r = diffRows.find(x => x.row_index === ri);
-      if (!cb.checked) {
-        decisions.set(ri, { action: "skip" });
-      } else if (r.status === "NEW") {
-        decisions.set(ri, { action: "insert", jurisdiction_id: r.jurisdiction_id });
-      } else if (r.status === "CHANGED") {
-        decisions.set(ri, { action: "replace", jurisdiction_id: r.jurisdiction_id, existing_official_id: r.existing.official_id });
-      } else if (r.status === "UNMATCHED") {
-        const sel = rowsContainer.querySelector('.oimp-jpick[data-ri="' + ri + '"]');
-        const jid = sel && sel.value ? parseInt(sel.value, 10) : null;
-        if (jid) decisions.set(ri, { action: "insert", jurisdiction_id: jid });
-        else { cb.checked = false; decisions.set(ri, { action: "skip" }); showToast("Pick a jurisdiction first"); }
-      }
+      recomputeDecision(ri);
+      refreshCount();
+    });
+  });
+
+  rowsContainer.querySelectorAll(".oimp-field").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const ri = parseInt(cb.dataset.ri, 10);
+      const field = cb.dataset.field;
+      const set = approvedFields.get(ri) || new Set();
+      if (cb.checked) set.add(field); else set.delete(field);
+      approvedFields.set(ri, set);
+      recomputeDecision(ri);
+      refreshCount();
+    });
+  });
+
+  rowsContainer.querySelectorAll(".oimp-match").forEach(sel => {
+    sel.addEventListener("change", () => {
+      const ri = parseInt(sel.dataset.ri, 10);
+      const val = sel.value ? parseInt(sel.value, 10) : null;
+      chosenMatchId.set(ri, val);
+      recomputeDecision(ri);
       refreshCount();
     });
   });
@@ -459,7 +565,7 @@ function renderDiff(overlay, ctx, result) {
       });
       const parts = [];
       if (result.inserted) parts.push(result.inserted + " inserted");
-      if (result.replaced) parts.push(result.replaced + " replaced");
+      if (result.merged) parts.push(result.merged + " merged");
       if (result.skipped) parts.push(result.skipped + " skipped");
       if (result.errors && result.errors.length) parts.push(result.errors.length + " errors");
       showToast(parts.join(", ") || "Nothing committed");

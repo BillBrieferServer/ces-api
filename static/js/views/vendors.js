@@ -710,11 +710,16 @@ function renderVendorMapping(overlay, preview) {
 function vendorStatusBadge(status) {
   const styles = {
     NEW: "background:rgba(34,197,94,0.2);color:#22C55E",
-    EXACT: "background:rgba(59,130,246,0.2);color:#60A5FA",
-    POSSIBLE: "background:rgba(234,179,8,0.2);color:#EAB308",
+    CHANGED: "background:rgba(234,179,8,0.2);color:#EAB308",
+    AUTO_MATCH: "background:rgba(59,130,246,0.2);color:#60A5FA",
+    POSSIBLE: "background:rgba(168,85,247,0.2);color:#A855F7",
     ERROR: "background:rgba(239,68,68,0.25);color:#fca5a5",
   };
   return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;' + (styles[status] || "") + '">' + status + '</span>';
+}
+
+function vEsc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
 }
 
 function renderVendorDiff(overlay, ctx, result) {
@@ -724,14 +729,53 @@ function renderVendorDiff(overlay, ctx, result) {
   const summary = result.summary || {};
 
   const decisions = new Map();
+  const chosenVendorId = new Map();   // ri -> existing_vendor_id or null (=insert new)
+  const chosenContactId = new Map();  // ri -> existing_contact_id or null
+  const approvedVFields = new Map();  // ri -> Set<vendor field>
+  const approvedCFields = new Map();  // ri -> Set<contact field>
+  const contactMode = new Map();      // ri -> "merge" | "insert" | "skip"
+
   for (const r of diffRows) {
-    if (r.status === "NEW") decisions.set(r.row_index, { action: "insert" });
-    else if (r.status === "EXACT") decisions.set(r.row_index, { action: "merge", existing_vendor_id: r.existing_vendor_id });
-    else if (r.status === "POSSIBLE") decisions.set(r.row_index, { action: "pending" });
-    else decisions.set(r.row_index, { action: "skip" });
+    approvedVFields.set(r.row_index, new Set((r.vendor_fill_fields || []).map(f => f.field)));
+    if (r.status === "CHANGED" || r.status === "AUTO_MATCH") {
+      const vid = r.best_match && r.best_match.vendor_id;
+      chosenVendorId.set(r.row_index, vid);
+      if (r.contact_match) {
+        chosenContactId.set(r.row_index, r.contact_match.contact_id);
+        contactMode.set(r.row_index, "merge");
+        approvedCFields.set(r.row_index, new Set((r.contact_match.fill_fields || []).map(f => f.field)));
+      } else if (r.has_contact_info) {
+        chosenContactId.set(r.row_index, null);
+        contactMode.set(r.row_index, "insert");
+        approvedCFields.set(r.row_index, new Set());
+      } else {
+        contactMode.set(r.row_index, "skip");
+        approvedCFields.set(r.row_index, new Set());
+      }
+      decisions.set(r.row_index, {
+        action: "merge",
+        existing_vendor_id: vid,
+        approved_vendor_fields: Array.from(approvedVFields.get(r.row_index)),
+        contact_action: contactMode.get(r.row_index),
+        existing_contact_id: chosenContactId.get(r.row_index),
+        approved_contact_fields: Array.from(approvedCFields.get(r.row_index)),
+      });
+    } else if (r.status === "POSSIBLE") {
+      // User must confirm
+      chosenVendorId.set(r.row_index, null);
+      approvedCFields.set(r.row_index, new Set());
+      contactMode.set(r.row_index, r.has_contact_info ? "insert" : "skip");
+      decisions.set(r.row_index, { action: "pending" });
+    } else if (r.status === "NEW") {
+      approvedCFields.set(r.row_index, new Set());
+      contactMode.set(r.row_index, r.has_contact_info ? "insert" : "skip");
+      decisions.set(r.row_index, { action: "insert", contact_action: contactMode.get(r.row_index) });
+    } else {
+      decisions.set(r.row_index, { action: "skip" });
+    }
   }
 
-  const summaryText = ["NEW", "EXACT", "POSSIBLE", "ERROR"]
+  const summaryText = ["NEW", "CHANGED", "AUTO_MATCH", "POSSIBLE", "ERROR"]
     .filter(s => summary[s])
     .map(s => summary[s] + " " + s.toLowerCase())
     .join(" · ");
@@ -763,7 +807,65 @@ function renderVendorDiff(overlay, ctx, result) {
 
   const summaryLine = (inc) => {
     const bits = [inc.contact_name, inc.email, inc.phone].filter(Boolean);
-    return bits.length ? bits.join(" · ") : "(no contact info)";
+    return bits.length ? bits.map(vEsc).join(" · ") : "(no contact info)";
+  };
+
+  const fieldRow = (ri, kind, ch, defaultChecked) => {
+    return '<label style="display:contents">' +
+      '<input type="checkbox" class="vimp-field" data-ri="' + ri + '" data-kind="' + kind + '" data-field="' + ch.field + '" ' + (defaultChecked ? "checked" : "") + ' style="margin:2px 0 0 0">' +
+      '<span style="color:var(--text-dim);font-size:11px">' + vEsc(ch.field) + '</span>' +
+      '<span style="color:var(--text-dim);font-size:11px;text-decoration:' + (ch.old ? 'line-through' : 'none') + '">' + vEsc(ch.old || "—") + '</span>' +
+      '<span style="color:#EAB308;font-size:11px">' + vEsc(ch.new || "—") + '</span>' +
+      '</label>';
+  };
+
+  const diffBlock = (ri, kind, fills, overs) => {
+    if (!fills.length && !overs.length) {
+      return '<div style="font-size:11px;color:var(--text-dim);margin-top:4px">No new data — already on file.</div>';
+    }
+    let h = '<div style="display:grid;grid-template-columns:20px max-content 1fr 1fr;gap:4px 10px;align-items:start;margin-top:6px;padding:6px 8px;background:rgba(234,179,8,0.06);border-radius:4px">';
+    h += '<div></div><div style="font-size:10px;color:var(--text-dim)">field</div><div style="font-size:10px;color:var(--text-dim)">existing</div><div style="font-size:10px;color:#EAB308">from card</div>';
+    for (const ch of fills) h += fieldRow(ri, kind, ch, true);
+    if (overs.length) {
+      h += '<div style="grid-column:1/-1;font-size:10px;color:var(--text-dim);margin-top:4px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08)">Overwrites (unchecked by default)</div>';
+      for (const ch of overs) h += fieldRow(ri, kind, ch, false);
+    }
+    h += '</div>';
+    return h;
+  };
+
+  const vendorSelect = (r) => {
+    const ri = r.row_index;
+    const cands = r.candidates || [];
+    let opts = '<option value="">— create new vendor —</option>';
+    for (const c of cands) {
+      const sel = (chosenVendorId.get(ri) === c.vendor_id) ? " selected" : "";
+      opts += '<option value="' + c.vendor_id + '"' + sel + '>merge with: ' + vEsc(c.vendor_name) + ' (score ' + c.score + ')</option>';
+    }
+    return '<select class="form-select vimp-vmatch" data-ri="' + ri + '" style="font-size:12px;padding:4px 6px;margin-top:4px;max-width:100%">' + opts + '</select>';
+  };
+
+  const contactBlock = (r) => {
+    const ri = r.row_index;
+    if (!r.has_contact_info) return '';
+    const cm = r.contact_match;
+    const cands = r.contact_candidates || [];
+    const mode = contactMode.get(ri);
+
+    let opts = '<option value="_insert"' + (mode === "insert" ? " selected" : "") + '>— add as new contact —</option>';
+    for (const c of cands) {
+      const sel = (chosenContactId.get(ri) === c.contact_id && mode === "merge") ? " selected" : "";
+      opts += '<option value="' + c.contact_id + '"' + sel + '>merge with: ' + vEsc(c.contact_name || "(unnamed)") + ' (score ' + c.score + ')</option>';
+    }
+    let h = '<div style="margin-top:8px;padding:6px 8px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:4px">' +
+      '<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Contact: <strong>' + vEsc(r.incoming.contact_name || "(no name)") + '</strong></div>' +
+      '<select class="form-select vimp-cmatch" data-ri="' + ri + '" style="font-size:12px;padding:4px 6px;max-width:100%">' + opts + '</select>';
+
+    if (cm && mode === "merge") {
+      h += diffBlock(ri, "contact", cm.fill_fields || [], cm.overwrite_fields || []);
+    }
+    h += '</div>';
+    return h;
   };
 
   const renderRow = (r) => {
@@ -772,36 +874,22 @@ function renderVendorDiff(overlay, ctx, result) {
     let body_html = "";
 
     if (r.status === "NEW") {
-      body_html = '<div style="font-size:13px"><strong>' + (inc.vendor_name || "") + '</strong></div>' +
-        '<div style="font-size:11px;color:var(--text-dim)">New vendor. ' + summaryLine(inc) + '</div>';
-    } else if (r.status === "EXACT") {
-      body_html = '<div style="font-size:13px"><strong>' + (inc.vendor_name || "") + '</strong></div>' +
-        '<div style="font-size:11px;color:var(--text-dim)">Exact match — will add contact to existing vendor. ' + summaryLine(inc) + '</div>';
+      body_html = '<div style="font-size:13px"><strong>' + vEsc(inc.vendor_name) + '</strong></div>' +
+        '<div style="font-size:11px;color:var(--text-dim)">New vendor. ' + summaryLine(inc) + '</div>' +
+        (r.has_contact_info ? '' : '');
+    } else if (r.status === "CHANGED" || r.status === "AUTO_MATCH") {
+      const bm = r.best_match || {};
+      body_html = '<div style="font-size:13px"><strong>' + vEsc(inc.vendor_name) + '</strong></div>' +
+        '<div style="font-size:11px;color:var(--text-dim)">Auto-matched to ' + vEsc(bm.vendor_name) + ' (score ' + bm.score + '). ' + summaryLine(inc) + '</div>' +
+        vendorSelect(r) +
+        diffBlock(i, "vendor", r.vendor_fill_fields || [], r.vendor_overwrite_fields || []) +
+        contactBlock(r);
     } else if (r.status === "POSSIBLE") {
-      const cands = r.candidates || [];
-      let candList = '<div style="font-size:11px;color:var(--text-dim);margin-top:4px">Possible matches:</div>';
-      candList += '<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">';
-      for (const c of cands) {
-        const simText = c.normalized ? "normalized match" : "similarity " + (c.sim ? c.sim.toFixed(2) : "?");
-        candList += '<label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:4px 6px;background:rgba(234,179,8,0.08);border-radius:4px;cursor:pointer">' +
-          '<input type="radio" name="vimp-choice-' + i + '" class="vimp-choice" data-ri="' + i + '" data-action="merge" data-vid="' + c.vendor_id + '">' +
-          '<span style="flex:1">' + c.vendor_name + '</span>' +
-          '<span style="font-size:10px;color:var(--text-dim)">' + simText + '</span>' +
-          '</label>';
-      }
-      candList += '<label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:4px 6px;background:rgba(34,197,94,0.08);border-radius:4px;cursor:pointer">' +
-        '<input type="radio" name="vimp-choice-' + i + '" class="vimp-choice" data-ri="' + i + '" data-action="insert">' +
-        '<span>Separate — create new vendor</span></label>';
-      candList += '<label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:4px 6px;background:rgba(255,255,255,0.05);border-radius:4px;cursor:pointer">' +
-        '<input type="radio" name="vimp-choice-' + i + '" class="vimp-choice" data-ri="' + i + '" data-action="skip">' +
-        '<span>Skip this row</span></label>';
-      candList += '</div>';
-
-      body_html = '<div style="font-size:13px"><strong>' + (inc.vendor_name || "") + '</strong></div>' +
-        '<div style="font-size:11px;color:var(--text-dim)">' + summaryLine(inc) + '</div>' +
-        candList;
+      body_html = '<div style="font-size:13px"><strong>' + vEsc(inc.vendor_name) + '</strong></div>' +
+        '<div style="font-size:11px;color:var(--text-dim)">Possible match — please choose. ' + summaryLine(inc) + '</div>' +
+        vendorSelect(r);
     } else if (r.status === "ERROR") {
-      body_html = '<div style="font-size:12px;color:#EF4444">Row ' + (i + 1) + ': ' + (r.error || "error") + '</div>';
+      body_html = '<div style="font-size:12px;color:#EF4444">Row ' + (i + 1) + ': ' + vEsc(r.error || "error") + '</div>';
     }
 
     const disabled = (r.status === "ERROR") ? "disabled" : "";
@@ -818,46 +906,71 @@ function renderVendorDiff(overlay, ctx, result) {
   rowsContainer.innerHTML = diffRows.map(renderRow).join("");
   refreshCount();
 
+  const recomputeVendor = (ri) => {
+    const r = diffRows.find(x => x.row_index === ri);
+    const cb = rowsContainer.querySelector('.vimp-cb[data-ri="' + ri + '"]');
+    if (!cb.checked) { decisions.set(ri, { action: "skip" }); return; }
+    const vid = chosenVendorId.get(ri);
+    const cmode = contactMode.get(ri) || (r.has_contact_info ? "insert" : "skip");
+    const base = {
+      contact_action: cmode,
+      existing_contact_id: cmode === "merge" ? chosenContactId.get(ri) : null,
+      approved_contact_fields: cmode === "merge" ? Array.from(approvedCFields.get(ri) || []) : null,
+    };
+    if (vid) {
+      decisions.set(ri, {
+        action: "merge",
+        existing_vendor_id: vid,
+        approved_vendor_fields: Array.from(approvedVFields.get(ri) || []),
+        ...base,
+      });
+    } else {
+      decisions.set(ri, { action: "insert", ...base });
+    }
+  };
+
   rowsContainer.querySelectorAll(".vimp-cb").forEach(cb => {
     cb.addEventListener("change", () => {
       const ri = parseInt(cb.dataset.ri, 10);
-      const r = diffRows.find(x => x.row_index === ri);
-      if (!cb.checked) {
-        decisions.set(ri, { action: "skip" });
-      } else if (r.status === "NEW") {
-        decisions.set(ri, { action: "insert" });
-      } else if (r.status === "EXACT") {
-        decisions.set(ri, { action: "merge", existing_vendor_id: r.existing_vendor_id });
-      } else if (r.status === "POSSIBLE") {
-        const picked = rowsContainer.querySelector('input.vimp-choice[data-ri="' + ri + '"]:checked');
-        if (picked) {
-          const action = picked.dataset.action;
-          if (action === "merge") decisions.set(ri, { action: "merge", existing_vendor_id: parseInt(picked.dataset.vid, 10) });
-          else if (action === "insert") decisions.set(ri, { action: "insert" });
-          else decisions.set(ri, { action: "skip" });
-        } else {
-          decisions.set(ri, { action: "pending" });
-        }
-      }
+      recomputeVendor(ri);
       refreshCount();
     });
   });
 
-  rowsContainer.querySelectorAll("input.vimp-choice").forEach(radio => {
-    radio.addEventListener("change", () => {
-      const ri = parseInt(radio.dataset.ri, 10);
-      const action = radio.dataset.action;
-      const cb = rowsContainer.querySelector('.vimp-cb[data-ri="' + ri + '"]');
-      if (action === "merge") {
-        decisions.set(ri, { action: "merge", existing_vendor_id: parseInt(radio.dataset.vid, 10) });
-        if (cb) cb.checked = true;
-      } else if (action === "insert") {
-        decisions.set(ri, { action: "insert" });
-        if (cb) cb.checked = true;
+  rowsContainer.querySelectorAll(".vimp-vmatch").forEach(sel => {
+    sel.addEventListener("change", () => {
+      const ri = parseInt(sel.dataset.ri, 10);
+      chosenVendorId.set(ri, sel.value ? parseInt(sel.value, 10) : null);
+      recomputeVendor(ri);
+      refreshCount();
+    });
+  });
+
+  rowsContainer.querySelectorAll(".vimp-cmatch").forEach(sel => {
+    sel.addEventListener("change", () => {
+      const ri = parseInt(sel.dataset.ri, 10);
+      if (sel.value === "_insert") {
+        contactMode.set(ri, "insert");
+        chosenContactId.set(ri, null);
       } else {
-        decisions.set(ri, { action: "skip" });
-        if (cb) cb.checked = false;
+        contactMode.set(ri, "merge");
+        chosenContactId.set(ri, parseInt(sel.value, 10));
       }
+      recomputeVendor(ri);
+      refreshCount();
+    });
+  });
+
+  rowsContainer.querySelectorAll(".vimp-field").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const ri = parseInt(cb.dataset.ri, 10);
+      const kind = cb.dataset.kind;
+      const field = cb.dataset.field;
+      const map = (kind === "vendor") ? approvedVFields : approvedCFields;
+      const set = map.get(ri) || new Set();
+      if (cb.checked) set.add(field); else set.delete(field);
+      map.set(ri, set);
+      recomputeVendor(ri);
       refreshCount();
     });
   });
@@ -891,8 +1004,10 @@ function renderVendorDiff(overlay, ctx, result) {
         },
       });
       const parts = [];
-      if (result.inserted) parts.push(result.inserted + " new");
-      if (result.merged) parts.push(result.merged + " merged");
+      if (result.inserted_vendors) parts.push(result.inserted_vendors + " new vendors");
+      if (result.merged_vendors) parts.push(result.merged_vendors + " merged vendors");
+      if (result.inserted_contacts) parts.push(result.inserted_contacts + " new contacts");
+      if (result.merged_contacts) parts.push(result.merged_contacts + " merged contacts");
       if (result.skipped) parts.push(result.skipped + " skipped");
       if (result.errors && result.errors.length) parts.push(result.errors.length + " errors");
       showToast(parts.join(", ") || "Nothing committed");

@@ -10,6 +10,10 @@ import csv
 from openpyxl import load_workbook
 from database import get_db
 
+from .import_match import (
+    score_person_candidate, band, diff_fields, _norm as _m_norm
+)
+
 router = APIRouter(prefix="/officials/import", tags=["official-import"])
 
 MAX_PREVIEW_ROWS = 1000
@@ -35,7 +39,8 @@ GUESS_PATTERNS = {
     "role_type": ["role type", "elected", "staff"],
 }
 
-DIFF_FIELDS = ["name", "email", "phone", "fax", "mailing_address", "physical_address"]
+DIFF_FIELDS = ["name", "title", "email", "phone", "fax",
+               "mailing_address", "physical_address", "role_type"]
 
 
 def _parse_upload(filename: str, content: bytes):
@@ -117,32 +122,44 @@ class DiffRequest(BaseModel):
     mapping: dict[str, str]
 
 
-def _norm(s):
-    return (s or "").strip().lower()
-
-
 async def _resolve_jurisdiction(db: AsyncSession, jname: str):
-    """Return (jurisdiction_id, confidence, candidates). confidence: exact|fuzzy|none."""
+    """Return (exact_jid, exact_candidates, fuzzy_candidates)."""
     if not jname:
-        return None, "none", []
-    n = _norm(jname)
+        return None, [], []
+    n = _m_norm(jname)
     r = await db.execute(text(
         "SELECT jurisdiction_id, name, type FROM common.jurisdictions "
         "WHERE lower(trim(name)) = :n LIMIT 1"
     ), {"n": n})
     row = r.mappings().first()
-    if row:
-        return row["jurisdiction_id"], "exact", []
+    exact = dict(row) if row else None
 
+    # Also grab fuzzy candidates — "Madison County Sheriff's Office" should find "Madison County"
     pattern = "%" + n.replace("%", "") + "%"
     r = await db.execute(text(
         "SELECT jurisdiction_id, name, type FROM common.jurisdictions "
-        "WHERE lower(name) ILIKE :p ORDER BY length(name) LIMIT 5"
-    ), {"p": pattern})
-    cands = [dict(x) for x in r.mappings().all()]
-    if len(cands) == 1:
-        return cands[0]["jurisdiction_id"], "fuzzy", cands
-    return None, "none", cands
+        "WHERE lower(name) ILIKE :p OR lower(:n) ILIKE '%' || lower(name) || '%' "
+        "ORDER BY length(name) LIMIT 10"
+    ), {"p": pattern, "n": n})
+    fuzzy = [dict(x) for x in r.mappings().all()]
+
+    # Strip exact from fuzzy list
+    if exact:
+        fuzzy = [c for c in fuzzy if c["jurisdiction_id"] != exact["jurisdiction_id"]]
+
+    return exact, ([exact] if exact else []), fuzzy
+
+
+async def _fetch_officials_for_jids(db: AsyncSession, jids: list[int]):
+    if not jids:
+        return []
+    r = await db.execute(text(
+        "SELECT official_id, jurisdiction_id, name, title, email, phone, fax, "
+        "       mailing_address, physical_address, role_type, source "
+        "FROM public.officials "
+        "WHERE jurisdiction_id = ANY(:jids) AND ended_date IS NULL"
+    ), {"jids": jids})
+    return [dict(x) for x in r.mappings().all()]
 
 
 @router.post("/diff")
@@ -166,7 +183,6 @@ async def diff(payload: DiffRequest, db: AsyncSession = Depends(get_db)):
         v = (row[i] or "").strip()
         return v or None
 
-    # Cache jurisdiction lookups per spreadsheet name
     juris_cache = {}
     results = []
 
@@ -185,66 +201,88 @@ async def diff(payload: DiffRequest, db: AsyncSession = Depends(get_db)):
             })
             continue
 
-        cache_key = _norm(jname)
-        if cache_key in juris_cache:
-            jid, conf, cands = juris_cache[cache_key]
+        ckey = _m_norm(jname)
+        if ckey in juris_cache:
+            exact, exact_list, fuzzy_list = juris_cache[ckey]
         else:
-            jid, conf, cands = await _resolve_jurisdiction(db, jname)
-            juris_cache[cache_key] = (jid, conf, cands)
+            exact, exact_list, fuzzy_list = await _resolve_jurisdiction(db, jname)
+            juris_cache[ckey] = (exact, exact_list, fuzzy_list)
 
-        if not jid:
+        # Gather candidate jurisdiction IDs
+        exact_ids = [c["jurisdiction_id"] for c in exact_list]
+        fuzzy_ids = [c["jurisdiction_id"] for c in fuzzy_list]
+        all_jids = exact_ids + fuzzy_ids
+
+        if not all_jids:
             results.append({
                 "row_index": idx,
                 "status": "UNMATCHED",
                 "incoming": incoming,
-                "jurisdiction_candidates": cands,
+                "jurisdiction_candidates": [],
             })
             continue
 
-        existing = await db.execute(text(
-            "SELECT official_id, name, title, email, phone, fax, "
-            "       mailing_address, physical_address, role_type, source "
-            "FROM public.officials "
-            "WHERE jurisdiction_id = :jid AND lower(trim(title)) = :t AND ended_date IS NULL "
-            "ORDER BY official_id DESC LIMIT 1"
-        ), {"jid": jid, "t": _norm(title)})
-        ex = existing.mappings().first()
-        ex = dict(ex) if ex else None
+        officials = await _fetch_officials_for_jids(db, all_jids)
 
-        if not ex:
-            results.append({
-                "row_index": idx,
-                "status": "NEW",
-                "jurisdiction_id": jid,
-                "jurisdiction_confidence": conf,
-                "incoming": incoming,
-            })
-            continue
+        # Score every candidate
+        exact_id_set = set(exact_ids)
+        scored = []
+        for o in officials:
+            jm = "exact" if o["jurisdiction_id"] in exact_id_set else "fuzzy"
+            score, parts = score_person_candidate(incoming, o, jm)
+            scored.append({"score": score, "parts": parts, "official": o})
+        scored.sort(key=lambda s: s["score"], reverse=True)
 
-        changed = []
-        for f in DIFF_FIELDS:
-            old = (ex.get(f) or "").strip() or None
-            new = incoming.get(f)
-            if new and new != old:
-                changed.append({"field": f, "old": old, "new": new})
+        top = scored[0] if scored else None
+        top_score = top["score"] if top else 0
+        status_band = band(top_score, person=True) if top else "NEW"
 
-        if not changed:
-            results.append({
-                "row_index": idx,
-                "status": "SAME",
-                "jurisdiction_id": jid,
-                "existing": ex,
-                "incoming": incoming,
-            })
+        top_candidates = [
+            {
+                "official_id": s["official"]["official_id"],
+                "name": s["official"]["name"],
+                "title": s["official"]["title"],
+                "jurisdiction_id": s["official"]["jurisdiction_id"],
+                "score": s["score"],
+                "score_parts": s["parts"],
+                "existing": s["official"],
+            }
+            for s in scored[:5]
+        ]
+
+        # Resolve target jurisdiction_id for insert (exact > best fuzzy > None)
+        target_jid = exact["jurisdiction_id"] if exact else (fuzzy_list[0]["jurisdiction_id"] if fuzzy_list else None)
+
+        result = {
+            "row_index": idx,
+            "incoming": incoming,
+            "jurisdiction_id": target_jid,
+            "jurisdiction_exact": exact,
+            "jurisdiction_candidates": fuzzy_list[:5],
+            "candidates": top_candidates,
+        }
+
+        if status_band == "AUTO" and top:
+            ex = top["official"]
+            fill, overwrite = diff_fields(incoming, ex, DIFF_FIELDS)
+            all_changes = fill + overwrite
+            if not all_changes:
+                result["status"] = "SAME"
+                result["best_match"] = top_candidates[0]
+                result["existing"] = ex
+            else:
+                result["status"] = "CHANGED"
+                result["best_match"] = top_candidates[0]
+                result["existing"] = ex
+                result["fill_fields"] = fill
+                result["overwrite_fields"] = overwrite
+        elif status_band == "POSSIBLE" and top:
+            result["status"] = "POSSIBLE"
+            result["best_match"] = top_candidates[0]
         else:
-            results.append({
-                "row_index": idx,
-                "status": "CHANGED",
-                "jurisdiction_id": jid,
-                "existing": ex,
-                "incoming": incoming,
-                "changed_fields": changed,
-            })
+            result["status"] = "NEW"
+
+        results.append(result)
 
     summary = {}
     for r in results:
@@ -255,9 +293,10 @@ async def diff(payload: DiffRequest, db: AsyncSession = Depends(get_db)):
 
 class CommitDecision(BaseModel):
     row_index: int
-    action: str  # "insert" | "replace" | "skip"
+    action: str  # "insert" | "merge" | "skip"
     jurisdiction_id: Optional[int] = None
     existing_official_id: Optional[int] = None
+    approved_fields: Optional[list[str]] = None  # for action="merge"
 
 
 class CommitRequest(BaseModel):
@@ -285,7 +324,7 @@ async def commit(payload: CommitRequest, db: AsyncSession = Depends(get_db)):
         return v or None
 
     inserted = 0
-    replaced = 0
+    merged = 0
     skipped = 0
     errors = []
     today = date.today()
@@ -300,23 +339,40 @@ async def commit(payload: CommitRequest, db: AsyncSession = Depends(get_db)):
         row = payload.rows[d.row_index]
         name = cell(row, "name")
         title = cell(row, "title")
+
+        if d.action == "merge":
+            if not d.existing_official_id:
+                errors.append({"row_index": d.row_index, "error": "merge needs existing_official_id"})
+                continue
+            approved = set(d.approved_fields or [])
+            if not approved:
+                skipped += 1
+                continue
+            allowed = set(DIFF_FIELDS)
+            sets = []
+            params = {"oid": d.existing_official_id}
+            for f in approved:
+                if f not in allowed:
+                    continue
+                sets.append(f"{f} = :{f}")
+                params[f] = cell(row, f)
+            if not sets:
+                skipped += 1
+                continue
+            await db.execute(text(
+                f"UPDATE public.officials SET {', '.join(sets)} WHERE official_id = :oid"
+            ), params)
+            merged += 1
+            continue
+
+        # action == "insert"
         jid = d.jurisdiction_id
         if not name or not title or not jid:
             errors.append({"row_index": d.row_index, "error": "missing name/title/jurisdiction"})
             continue
-
-        if d.action == "replace":
-            if not d.existing_official_id:
-                errors.append({"row_index": d.row_index, "error": "replace needs existing_official_id"})
-                continue
-            await db.execute(text(
-                "UPDATE public.officials SET ended_date = :t WHERE official_id = :oid"
-            ), {"t": today, "oid": d.existing_official_id})
-
         role = cell(row, "role_type") or "elected"
         if role not in ("elected", "staff"):
             role = "elected"
-
         await db.execute(text(
             "INSERT INTO public.officials "
             "(jurisdiction_id, name, title, email, phone, fax, "
@@ -334,11 +390,7 @@ async def commit(payload: CommitRequest, db: AsyncSession = Depends(get_db)):
             "sd": today,
             "role": role,
         })
-
-        if d.action == "replace":
-            replaced += 1
-        else:
-            inserted += 1
+        inserted += 1
 
     await db.commit()
-    return {"inserted": inserted, "replaced": replaced, "skipped": skipped, "errors": errors}
+    return {"inserted": inserted, "merged": merged, "skipped": skipped, "errors": errors}
