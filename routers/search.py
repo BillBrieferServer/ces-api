@@ -54,7 +54,7 @@ async def universal_search(
         FROM public.officials o
         LEFT JOIN common.jurisdictions j ON j.jurisdiction_id = o.jurisdiction_id
         LEFT JOIN common.counties c ON c.county_id = j.county_id
-        WHERE {o_conditions}
+        WHERE {o_conditions} AND o.ended_date IS NULL
         ORDER BY j.name, o.name
         LIMIT 25
     """), params)

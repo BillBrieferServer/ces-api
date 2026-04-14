@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from routers import jurisdictions, officials, outreach, interactions, vendors, brief, search, geo, calendar, reports, admin, notes
+from routers import jurisdictions, officials, outreach, interactions, vendors, brief, search, geo, calendar, reports, admin, notes, vendor_import, official_import
 from auth import (
     get_user_by_email,
     auth_router, set_templates as set_auth_templates, init_auth_db,
@@ -226,6 +226,8 @@ app.include_router(officials.router, prefix="/api")
 app.include_router(outreach.router, prefix="/api")
 app.include_router(interactions.router, prefix="/api")
 app.include_router(vendors.router, prefix="/api")
+app.include_router(vendor_import.router, prefix="/api")
+app.include_router(official_import.router, prefix="/api")
 app.include_router(brief.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(geo.router, prefix="/api")

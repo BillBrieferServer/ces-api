@@ -18,6 +18,7 @@ async def list_officials(
     db: AsyncSession = Depends(get_db),
 ):
     where = []
+    where.append("o.ended_date IS NULL")
     params = {}
 
     if name:

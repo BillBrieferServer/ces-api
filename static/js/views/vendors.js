@@ -1,4 +1,4 @@
-import { api, navigate, phoneLink, emailLink, badge, formatDate, showToast } from "../app.js";
+import { api, navigate, phoneLink, emailLink, badge, formatDate, showToast, getCsrfToken } from "../app.js";
 import { assigneeOptions, showScheduleModal, renderLinkedNotesSection } from "../shared.js";
 
 const PIPELINE_COLORS = {
@@ -32,7 +32,7 @@ export async function renderVendors(el) {
 
     // Add vendor button
     html += `<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-      <button class="btn btn-primary btn-sm" id="add-vendor-btn" style="padding:6px 14px;font-size:12px">+ Add Vendor</button>
+      <button class="btn btn-sm" id="import-vendors-btn" style="padding:6px 14px;font-size:12px;margin-right:8px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.28);border-radius:6px">⬆ Import</button><button class="btn btn-primary btn-sm" id="add-vendor-btn" style="padding:6px 14px;font-size:12px">+ Add Vendor</button>
     </div>`;
 
     if (currentTab === "pipeline") {
@@ -95,6 +95,7 @@ export async function renderVendors(el) {
     el.innerHTML = html;
 
     // Tab handlers
+    const importBtn = el.querySelector("#import-vendors-btn"); if (importBtn) importBtn.addEventListener("click", () => showImportVendorsModal(el));
     const addBtn = el.querySelector("#add-vendor-btn");
     if (addBtn) addBtn.addEventListener("click", () => showAddVendorModal(el));
 
@@ -589,4 +590,317 @@ export async function renderVendors(el) {
 
   const data = await loadData();
   render(data);
+}
+
+
+
+function showImportVendorsModal(parentEl) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width:1000px;width:97%;max-height:92vh;display:flex;flex-direction:column">
+      <div class="modal-header">
+        <h2>Import Vendors</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div id="vimp-body" style="padding:8px 0;overflow-y:auto;flex:1">
+        <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px">Upload a spreadsheet (.csv/.xlsx), a business card photo (.jpg/.png), or a scanned PDF. Vision extraction will pull contact info from images/PDFs. You will review matches before committing.</p>
+        <input type="file" id="vimp-file" accept=".csv,.xlsx,.txt,.pdf,.jpg,.jpeg,.png" class="form-input" style="padding:8px">
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+          <button class="btn" id="vimp-cancel" style="background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.28);border-radius:6px;padding:8px 14px">Cancel</button>
+          <button class="btn btn-primary" id="vimp-upload">Upload &amp; Preview</button>
+        </div>
+      </div>
+    </div>`;
+  parentEl.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector(".modal-close").addEventListener("click", close);
+  overlay.querySelector("#vimp-cancel").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelector("#vimp-upload").addEventListener("click", async () => {
+    const fileInput = overlay.querySelector("#vimp-file");
+    const f = fileInput.files[0];
+    if (!f) { showToast("Pick a file first"); return; }
+    const btn = overlay.querySelector("#vimp-upload");
+    btn.disabled = true; btn.textContent = "Uploading...";
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const token = await getCsrfToken();
+      const res = await fetch("/api/vendors/import/preview", {
+        method: "POST",
+        headers: { "X-CSRF-Token": token },
+        body: fd,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const preview = await res.json();
+      renderVendorMapping(overlay, preview);
+    } catch (e) {
+      showToast("Upload failed: " + e.message);
+      btn.disabled = false; btn.textContent = "Upload & Preview";
+    }
+  });
+}
+
+function renderVendorMapping(overlay, preview) {
+  const { columns, rows, suggested_mapping, field_choices, truncated } = preview;
+  const body = overlay.querySelector("#vimp-body");
+
+  const labels = {
+    vendor_name: "Vendor Name *",
+    contact_name: "Contact Name",
+    contact_title: "Title",
+    phone: "Work Phone",
+    cell_phone: "Cell Phone",
+    email: "Email",
+    website: "Website",
+    address: "Address",
+    source: "Source",
+    bluebook_status: "Bluebook Status",
+    ces_contract_category: "Contract Category",
+  };
+
+  const optsFor = (field) => {
+    const picked = suggested_mapping[field] || "";
+    let opts = '<option value="">-- ignore --</option>';
+    for (const c of columns) {
+      if (!c) continue;
+      const safe = c.replace(/"/g, "&quot;");
+      opts += '<option value="' + safe + '"' + (c === picked ? " selected" : "") + '>' + c + '</option>';
+    }
+    return opts;
+  };
+
+  let html = '<div style="font-size:13px;color:var(--text-dim);margin-bottom:12px">' + rows.length + ' rows loaded' + (truncated ? " (truncated to 500)" : "") + '. Map spreadsheet columns to vendor fields.</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:16px">';
+  for (const f of field_choices) {
+    html += '<div class="form-group" style="margin:0">' +
+      '<label class="form-label" style="font-size:12px">' + (labels[f] || f) + '</label>' +
+      '<select class="form-select vimp-map" data-field="' + f + '">' + optsFor(f) + '</select>' +
+      '</div>';
+  }
+  html += '</div>';
+  html += '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button class="btn" id="vimp-back" style="background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.28);border-radius:6px;padding:8px 14px">Cancel</button>' +
+    '<button class="btn btn-primary" id="vimp-diff">Review Matches</button>' +
+    '</div>';
+  body.innerHTML = html;
+
+  body.querySelector("#vimp-back").addEventListener("click", () => overlay.remove());
+  body.querySelector("#vimp-diff").addEventListener("click", async () => {
+    const mapping = {};
+    body.querySelectorAll(".vimp-map").forEach(sel => { if (sel.value) mapping[sel.dataset.field] = sel.value; });
+    if (!mapping.vendor_name) { showToast("Map a column to Vendor Name first"); return; }
+    const btn = body.querySelector("#vimp-diff");
+    btn.disabled = true; btn.textContent = "Analyzing...";
+    try {
+      const result = await api("/vendors/import/diff", {
+        method: "POST",
+        body: { columns, rows, mapping },
+      });
+      renderVendorDiff(overlay, { columns, rows, mapping, field_choices }, result);
+    } catch (e) {
+      showToast("Analysis failed: " + e.message);
+      btn.disabled = false; btn.textContent = "Review Matches";
+    }
+  });
+}
+
+function vendorStatusBadge(status) {
+  const styles = {
+    NEW: "background:rgba(34,197,94,0.2);color:#22C55E",
+    EXACT: "background:rgba(59,130,246,0.2);color:#60A5FA",
+    POSSIBLE: "background:rgba(234,179,8,0.2);color:#EAB308",
+    ERROR: "background:rgba(239,68,68,0.25);color:#fca5a5",
+  };
+  return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;' + (styles[status] || "") + '">' + status + '</span>';
+}
+
+function renderVendorDiff(overlay, ctx, result) {
+  const { columns, rows, mapping } = ctx;
+  const body = overlay.querySelector("#vimp-body");
+  const diffRows = result.rows;
+  const summary = result.summary || {};
+
+  const decisions = new Map();
+  for (const r of diffRows) {
+    if (r.status === "NEW") decisions.set(r.row_index, { action: "insert" });
+    else if (r.status === "EXACT") decisions.set(r.row_index, { action: "merge", existing_vendor_id: r.existing_vendor_id });
+    else if (r.status === "POSSIBLE") decisions.set(r.row_index, { action: "pending" });
+    else decisions.set(r.row_index, { action: "skip" });
+  }
+
+  const summaryText = ["NEW", "EXACT", "POSSIBLE", "ERROR"]
+    .filter(s => summary[s])
+    .map(s => summary[s] + " " + s.toLowerCase())
+    .join(" · ");
+
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+    '<div style="font-size:13px">' + summaryText + '</div>' +
+    '<div style="font-size:11px;color:var(--text-dim)">Possible matches need your decision</div>' +
+    '</div>';
+  html += '<div style="margin-bottom:12px"><label class="form-label" style="font-size:12px">Source tag (optional, applied to new vendors)</label><input class="form-input" id="vimp-source" placeholder="e.g. ICCTFOA Spring Conference 2026"></div>';
+  html += '<div id="vimp-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>';
+  html += '<div style="display:flex;gap:8px;justify-content:space-between;position:sticky;bottom:0;background:var(--bg-card);padding-top:10px;border-top:1px solid rgba(255,255,255,0.1)">' +
+    '<button class="btn" id="vimp-back2" style="background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.28);border-radius:6px;padding:8px 14px">Back</button>' +
+    '<button class="btn btn-primary" id="vimp-commit">Commit <span id="vimp-count"></span></button>' +
+    '</div>';
+  body.innerHTML = html;
+
+  const rowsContainer = body.querySelector("#vimp-rows");
+  const countEl = body.querySelector("#vimp-count");
+
+  const refreshCount = () => {
+    let ins = 0, mrg = 0, pend = 0;
+    for (const d of decisions.values()) {
+      if (d.action === "insert") ins++;
+      else if (d.action === "merge") mrg++;
+      else if (d.action === "pending") pend++;
+    }
+    countEl.textContent = "(" + (ins + mrg) + ": " + ins + " new, " + mrg + " merged" + (pend ? ", " + pend + " undecided" : "") + ")";
+  };
+
+  const summaryLine = (inc) => {
+    const bits = [inc.contact_name, inc.email, inc.phone].filter(Boolean);
+    return bits.length ? bits.join(" · ") : "(no contact info)";
+  };
+
+  const renderRow = (r) => {
+    const i = r.row_index;
+    const inc = r.incoming || {};
+    let body_html = "";
+
+    if (r.status === "NEW") {
+      body_html = '<div style="font-size:13px"><strong>' + (inc.vendor_name || "") + '</strong></div>' +
+        '<div style="font-size:11px;color:var(--text-dim)">New vendor. ' + summaryLine(inc) + '</div>';
+    } else if (r.status === "EXACT") {
+      body_html = '<div style="font-size:13px"><strong>' + (inc.vendor_name || "") + '</strong></div>' +
+        '<div style="font-size:11px;color:var(--text-dim)">Exact match — will add contact to existing vendor. ' + summaryLine(inc) + '</div>';
+    } else if (r.status === "POSSIBLE") {
+      const cands = r.candidates || [];
+      let candList = '<div style="font-size:11px;color:var(--text-dim);margin-top:4px">Possible matches:</div>';
+      candList += '<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">';
+      for (const c of cands) {
+        const simText = c.normalized ? "normalized match" : "similarity " + (c.sim ? c.sim.toFixed(2) : "?");
+        candList += '<label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:4px 6px;background:rgba(234,179,8,0.08);border-radius:4px;cursor:pointer">' +
+          '<input type="radio" name="vimp-choice-' + i + '" class="vimp-choice" data-ri="' + i + '" data-action="merge" data-vid="' + c.vendor_id + '">' +
+          '<span style="flex:1">' + c.vendor_name + '</span>' +
+          '<span style="font-size:10px;color:var(--text-dim)">' + simText + '</span>' +
+          '</label>';
+      }
+      candList += '<label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:4px 6px;background:rgba(34,197,94,0.08);border-radius:4px;cursor:pointer">' +
+        '<input type="radio" name="vimp-choice-' + i + '" class="vimp-choice" data-ri="' + i + '" data-action="insert">' +
+        '<span>Separate — create new vendor</span></label>';
+      candList += '<label style="display:flex;gap:6px;align-items:center;font-size:12px;padding:4px 6px;background:rgba(255,255,255,0.05);border-radius:4px;cursor:pointer">' +
+        '<input type="radio" name="vimp-choice-' + i + '" class="vimp-choice" data-ri="' + i + '" data-action="skip">' +
+        '<span>Skip this row</span></label>';
+      candList += '</div>';
+
+      body_html = '<div style="font-size:13px"><strong>' + (inc.vendor_name || "") + '</strong></div>' +
+        '<div style="font-size:11px;color:var(--text-dim)">' + summaryLine(inc) + '</div>' +
+        candList;
+    } else if (r.status === "ERROR") {
+      body_html = '<div style="font-size:12px;color:#EF4444">Row ' + (i + 1) + ': ' + (r.error || "error") + '</div>';
+    }
+
+    const disabled = (r.status === "ERROR") ? "disabled" : "";
+    const defaultChecked = (r.status !== "ERROR" && r.status !== "POSSIBLE") ? "checked" : "";
+    return '<div class="vimp-row" data-ri="' + i + '" style="border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:8px 10px;display:flex;gap:10px;align-items:flex-start">' +
+      '<input type="checkbox" class="vimp-cb" data-ri="' + i + '" ' + defaultChecked + ' ' + disabled + ' style="margin-top:4px">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">' + vendorStatusBadge(r.status) + '</div>' +
+        body_html +
+      '</div>' +
+    '</div>';
+  };
+
+  rowsContainer.innerHTML = diffRows.map(renderRow).join("");
+  refreshCount();
+
+  rowsContainer.querySelectorAll(".vimp-cb").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const ri = parseInt(cb.dataset.ri, 10);
+      const r = diffRows.find(x => x.row_index === ri);
+      if (!cb.checked) {
+        decisions.set(ri, { action: "skip" });
+      } else if (r.status === "NEW") {
+        decisions.set(ri, { action: "insert" });
+      } else if (r.status === "EXACT") {
+        decisions.set(ri, { action: "merge", existing_vendor_id: r.existing_vendor_id });
+      } else if (r.status === "POSSIBLE") {
+        const picked = rowsContainer.querySelector('input.vimp-choice[data-ri="' + ri + '"]:checked');
+        if (picked) {
+          const action = picked.dataset.action;
+          if (action === "merge") decisions.set(ri, { action: "merge", existing_vendor_id: parseInt(picked.dataset.vid, 10) });
+          else if (action === "insert") decisions.set(ri, { action: "insert" });
+          else decisions.set(ri, { action: "skip" });
+        } else {
+          decisions.set(ri, { action: "pending" });
+        }
+      }
+      refreshCount();
+    });
+  });
+
+  rowsContainer.querySelectorAll("input.vimp-choice").forEach(radio => {
+    radio.addEventListener("change", () => {
+      const ri = parseInt(radio.dataset.ri, 10);
+      const action = radio.dataset.action;
+      const cb = rowsContainer.querySelector('.vimp-cb[data-ri="' + ri + '"]');
+      if (action === "merge") {
+        decisions.set(ri, { action: "merge", existing_vendor_id: parseInt(radio.dataset.vid, 10) });
+        if (cb) cb.checked = true;
+      } else if (action === "insert") {
+        decisions.set(ri, { action: "insert" });
+        if (cb) cb.checked = true;
+      } else {
+        decisions.set(ri, { action: "skip" });
+        if (cb) cb.checked = false;
+      }
+      refreshCount();
+    });
+  });
+
+  body.querySelector("#vimp-back2").addEventListener("click", () => renderVendorMapping(overlay, {
+    columns, rows, suggested_mapping: mapping, field_choices: ctx.field_choices, truncated: false,
+  }));
+
+  body.querySelector("#vimp-commit").addEventListener("click", async () => {
+    const pending = [];
+    for (const [ri, d] of decisions.entries()) {
+      if (d.action === "pending") pending.push(ri + 1);
+    }
+    if (pending.length) {
+      showToast("Decide on possible matches first (rows " + pending.slice(0, 5).join(", ") + (pending.length > 5 ? "..." : "") + ")");
+      return;
+    }
+    const decisionList = [];
+    for (const [ri, d] of decisions.entries()) {
+      decisionList.push({ row_index: ri, ...d });
+    }
+    const btn = body.querySelector("#vimp-commit");
+    btn.disabled = true; btn.textContent = "Committing...";
+    try {
+      const result = await api("/vendors/import/commit", {
+        method: "POST",
+        body: {
+          columns, rows, mapping,
+          decisions: decisionList,
+          source: body.querySelector("#vimp-source").value.trim() || null,
+        },
+      });
+      const parts = [];
+      if (result.inserted) parts.push(result.inserted + " new");
+      if (result.merged) parts.push(result.merged + " merged");
+      if (result.skipped) parts.push(result.skipped + " skipped");
+      if (result.errors && result.errors.length) parts.push(result.errors.length + " errors");
+      showToast(parts.join(", ") || "Nothing committed");
+      overlay.remove();
+      navigate("vendors");
+    } catch (e) {
+      showToast("Commit failed: " + e.message);
+      btn.disabled = false; btn.textContent = "Commit";
+    }
+  });
 }
